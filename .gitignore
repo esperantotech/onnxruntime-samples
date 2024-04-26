@@ -1,0 +1,12 @@
+# Ignore untar models
+models/image-classifier/onnx/mnist-12/
+models/image-classifier/onnx/resnet50-v2-7/
+
+#ignore CompileNetwork
+CompiledNetwork*
+EtGlowExecutionProvider_*
+onnxruntime_bundles/
+*.log
+
+#ignore temporary files
+*.*~

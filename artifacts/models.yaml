@@ -1,0 +1,30 @@
+data:
+  input_data:
+    images:
+      images_1-1-28-28:
+        servers:
+        - path: sw-ci-inputs/input_images/images_1-1-28-28
+          server: artifactory
+        version: 1
+  models:
+    mnist:
+      servers:
+      - path: sw-ci-inputs/models/mnist
+        server: artifactory
+      version: 4
+
+    resnet50_denso_onnx:
+      servers:
+      - path: sw-ci-inputs/models/resnet50_denso_onnx
+        server: artifactory
+      version: 1
+
+    resnet50_onnx:
+      servers:
+      - path: sw-ci-inputs/models/resnet50_onnx
+        server: artifactory
+      version: 3
+
+
+metadata:
+  schema: '@YAML_SCHEMAS_DIR@/artifacts-schema.yaml'
