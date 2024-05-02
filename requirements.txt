@@ -1,0 +1,4 @@
+artifacts_mgr_client
+opencv-python
+onnx
+pytest-xdist

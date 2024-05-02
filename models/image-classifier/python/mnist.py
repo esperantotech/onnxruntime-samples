@@ -7,15 +7,18 @@ from onnx import numpy_helper
 import json
 import time
 import os
+import sys
 import cv2
+from argparse import ArgumentParser, Namespace
+from typing import Sequence, Optional
 
 
 def load_pb_data(modelpath, test_data_num=1):
     """Load minst pb's test dataset"""
     
-    protobufbasepath = "input_data/protobuf"
+    protobufbasepath = "input_data/protobuf"    
     modelname = modelpath.split('/')[-1]
-    artifactsbase = '/'.join(modelpath.split('/')[:4])
+    artifactsbase = '/'.join(modelpath.split('/')[:-2])
 
     protobufmodelpath = os.path.join(artifactsbase, protobufbasepath, modelname)
 
@@ -115,12 +118,12 @@ def checkresults(testset):
             print(f'\tExpected result is {testset[k]["result"]} \n\tobtained in provider {testset[k]["resultcpu"]}')
             print("****************")
 
-def test_images(session, sessionEtsoc):
+def test_images(modelpath, session, sessionEtsoc):
     """Test current session model against real inputs."""
 
-
-    test_path = ['../../../DownloadArtifactory/input_data/images/images_1-1-28-28',
-                 '../../../DownloadArtifactory/input_data/images/images_3-400-640']
+    artifactsbase = '/'.join(modelpath.split('/')[:-2])
+    test_path = [f'{artifactsbase}/input_data/images/images_1-1-28-28',
+                 f'{artifactsbase}/input_data/images/images_3-400-640']
     
     in_name, out_name = get_in_out_names(session)
 
@@ -135,17 +138,27 @@ def test_images(session, sessionEtsoc):
 
     checkresults(testset)
 
-if __name__ == "__main__":
-    """Launch mnist onns model over cpu and etglow and compare results."""
+def parse_args(argv: Optional[Sequence[str]] = None) -> Namespace:
+    parser = ArgumentParser()
+    parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory")
 
-    modelpath = "../../../DownloadArtifactory/models/mnist"
+    return parser.parse_args(argv)
+
+def main(argv: Optional[Sequence[str]] = None):    
+    """Launch MNIST onnx model over cpu and etglow and compare results."""
+
+    args = parse_args(argv)        
+    modelpath = args.artifacts + "/models/mnist"
     modelname = "model.onnx"
-
     model = os.path.join(modelpath, modelname)
+    print(modelpath)
 
     session = ort.InferenceSession(model)
     sessionEtsoc = ort.InferenceSession(model, providers=['EtGlowExecutionProvider'])
 
     test_pb_inputs(modelpath, session, sessionEtsoc)
+    test_images(modelpath, session, sessionEtsoc)
 
-    test_images(session, sessionEtsoc)
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

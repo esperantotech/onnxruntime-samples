@@ -7,14 +7,17 @@ from onnx import numpy_helper
 import json
 import time
 import os
+import sys
 import cv2 
+from argparse import ArgumentParser, Namespace
+from typing import Sequence, Optional
 
 def load_pb_data(modelpath, test_data_num=1):
     """Load resnet pb's test dataset"""
 
     protobufbasepath = "input_data/protobuf"
     modelname = modelpath.split('/')[-1]
-    artifactsbase = '/'.join(modelpath.split('/')[:4])
+    artifactsbase = '/'.join(modelpath.split('/')[:-2])
 
     protobufmodelpath = os.path.join(artifactsbase, protobufbasepath, modelname)
 
@@ -131,10 +134,10 @@ def load_data_test(test_path):
 
     return(testset)
 
-def show_prediction(idx, res, inference_time):
+def show_prediction(artifactsbase, idx, res, inference_time):
     """Show ResNet result"""
 
-    labels = load_labels('../../../DownloadArtifactory/input_data/images/imagenet/index_to_name.json')
+    labels = load_labels(f'{artifactsbase}/input_data/images/imagenet/index_to_name.json')
    
     print('========================================')
     print('Final top prediction is: ' + labels[f'{idx}'][1])
@@ -151,9 +154,11 @@ def show_prediction(idx, res, inference_time):
     print('===========================================================')
 
 
-def test_images(session, sessionEtsoc):
+def test_images(modelpath, session, sessionEtsoc):
     """Test current session model against real inputs."""
-    test_path = ['../../../DownloadArtifactory/input_data/images/imagenet/images']
+
+    artifactsbase = '/'.join(modelpath.split('/')[:-2])
+    test_path = [f'{artifactsbase}/input_data/images/imagenet/images']
 
     in_name, out_name = get_in_out_names(session)
 
@@ -167,7 +172,7 @@ def test_images(session, sessionEtsoc):
         res  = postprocess(result)
         inference_time = np.round((end - start) * 1000, 2)        
         idx = np.argmax(res)
-        show_prediction(idx, res, inference_time)
+        show_prediction(artifactsbase, idx, res, inference_time)
 
         """  Currently ETGlowProvider is not working fine
         start = time.time()
@@ -179,19 +184,22 @@ def test_images(session, sessionEtsoc):
         show_prediction(idx, res, inference_time)
         """
 
-if __name__ == "__main__":
+def parse_args(argv: Optional[Sequence[str]] = None) -> Namespace:
+    parser = ArgumentParser()
+    parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory")
+
+    return parser.parse_args(argv)
+
+def main(argv: Optional[Sequence[str]] = None):
     """Launch RESNET50 onnx model over cpu and etglow and compare results."""
 
-    #modelpath = "../../../DownloadArtifactory/models/resnet50_denso_onnx"
-    #modelpath = "../../../DownloadArtifactory/models/resnet50_onnx"    
-    modelpath = "../../../DownloadArtifactory/models/resnet50-v2-7"
+    args = parse_args(argv)    
+    #modelpath = args.artifacts + "/models/resnet50_denso_onnx"
+    #modelpath = args.artifacts + "/models/resnet50_onnx"    
+    modelpath = args.artifacts + "/models/resnet50-v2-7"
     modelname = "model.onnx"
-    test_data_num = 1
-
     model = os.path.join(modelpath, modelname)
     
-#    inputs, ref_outputs = load_pb_test_data_set(modelpath)
-
     log_severity_verbose = 0
     log_severity_warning = 2
     ort.set_default_logger_severity(log_severity_verbose)
@@ -206,5 +214,7 @@ if __name__ == "__main__":
     sessionEtsoc = ort.InferenceSession(model, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
 
     test_pb_inputs(modelpath, session, sessionEtsoc)
+    test_images(modelpath, session, sessionEtsoc)
 
-    test_images(session, sessionEtsoc)
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
