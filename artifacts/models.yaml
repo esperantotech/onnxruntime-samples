@@ -1,0 +1,78 @@
+data:
+  input_data:
+    images:
+      images_1-1-28-28:
+        servers:
+        - path: sw-ci-inputs/input_images/images_1-1-28-28
+          server: artifactory
+        version: 1
+      images_3-400-640:
+        servers:
+        - path: sw-ci-inputs/input_images/images_3_400_640
+          server: artifactory
+        version: 1
+
+      imagenet:
+        servers:
+        - path: sw-ci-inputs/accuracy_experiment
+          server: artifactory
+          version: 1
+          files:
+          - src:
+            - index_to_name.json
+            - labels.txt
+            - positions.txt
+            - true_predictions.txt
+        - path: sw-ci-inputs/input_images/ImageNet
+          server: artifactory
+          version: 1
+          files:
+          - src:
+            - 1_*.png
+            - 2_*.png
+            - 3_*.png
+            dst: images/
+
+    protobuf:
+      mnist:
+        test_data_set_0:
+          servers:
+          - path: sw-ci-inputs/protobuf/mnist-12/test_data_set_0
+            server: artifactory
+            version: 1
+      
+      resnet50-v2-7:
+        test_data_set_0:
+          servers:
+          - path: sw-ci-inputs/protobuf/resnet50-v2-7/test_data_set_0
+            server: artifactory
+            version: 1
+
+  models:
+    mnist:
+      servers:
+      - path: sw-ci-inputs/models/mnist
+        server: artifactory
+      version: 4
+
+    resnet50_denso_onnx:
+      servers:
+      - path: sw-ci-inputs/models/resnet50_denso_onnx
+        server: artifactory
+      version: 1
+
+    resnet50_onnx:
+      servers:
+      - path: sw-ci-inputs/models/resnet50_onnx
+        server: artifactory
+      version: 3
+
+    resnet50-v2-7:
+      servers:
+      - path: sw-ci-inputs/models/resnet50_onnx
+        server: artifactory
+      version: 4
+
+
+metadata:
+  schema: '@YAML_SCHEMAS_DIR@/artifacts-schema.yaml'
