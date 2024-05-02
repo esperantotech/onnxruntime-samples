@@ -10,10 +10,16 @@ import os
 import cv2
 
 
-def load_pb_test_data_set(modelpath, test_data_num=1):
+def load_pb_data(modelpath, test_data_num=1):
     """Load minst pb's test dataset"""
     
-    test_data_dir = os.path.join(modelpath, "test_data_set")
+    protobufbasepath = "input_data/protobuf"
+    modelname = modelpath.split('/')[-1]
+    artifactsbase = '/'.join(modelpath.split('/')[:4])
+
+    protobufmodelpath = os.path.join(artifactsbase, protobufbasepath, modelname)
+
+    test_data_dir = os.path.join(protobufmodelpath, "test_data_set")
         
     #Load inputs
     inputs =  []
@@ -39,6 +45,33 @@ def load_pb_test_data_set(modelpath, test_data_num=1):
 
     return (inputs, ref_outputs)
 
+def get_in_out_names(session):
+    """Get input and output data name of model"""
+    input_name = session.get_inputs()[0].name
+    output_name = session.get_outputs()[0].name
+
+    return (input_name, output_name)
+
+def check_and_compare(ref_outputs, outputEtsoc) :
+    """Compare the results with reference outputs up to 4 decimal places"""
+   
+    for ref_o, o in zip(ref_outputs, outputEtsoc):
+        np.testing.assert_almost_equal(ref_o, o, 4)        
+
+def test_pb_inputs(modelpath, session, sessionEtsoc):
+    """Test pb inputs given by the owner of model"""
+    test_data_num = 1
+
+    in_name, out_name = get_in_out_names(session)
+    inputs, ref_outputs = load_pb_data(modelpath, test_data_num)
+
+    output = [session.run([], {in_name: inputs[i]})[0] for i in range(test_data_num)]
+    check_and_compare(ref_outputs, output)
+    print('CPU Runtime outputs are similar to reference outputs!')
+    
+    output = [sessionEtsoc.run([], {in_name: inputs[i]})[0] for i in range(test_data_num)]
+    check_and_compare(ref_outputs, output)
+    print('EtGlowExecutionProvider Runtime outputs are similar to reference outputs!')
 
 def load_mnist_test(test_path):
     """Load images to be tested"""
@@ -75,46 +108,44 @@ def checkresults(testset):
     
     for k, v in testset.items():
         if testset[k]['result'] == testset[k]['resultcpu'] :
-            print(f'Image {k} Ok \n\tidentified as number {testset[k]["resultcpu"]}')
+            print(f'Image {k} is OK \n\tidentified as number {testset[k]["resultcpu"]}')
         else:
             print("****************")
             print(f'Image {k} FAILS:')
             print(f'\tExpected result is {testset[k]["result"]} \n\tobtained in provider {testset[k]["resultcpu"]}')
             print("****************")
 
+def test_images(session, sessionEtsoc):
+    """Test current session model against real inputs."""
+
+
+    test_path = ['../../../DownloadArtifactory/input_data/images/images_1-1-28-28',
+                 '../../../DownloadArtifactory/input_data/images/images_3-400-640']
+    
+    in_name, out_name = get_in_out_names(session)
+
+    #load real images
+    testset = load_mnist_test(test_path)    
+    for k,v in testset.items():
+        result = session.run([out_name], {in_name: testset[k]['data']})
+        testset[k]['result'] = int(np.argmax(np.array(result).squeeze(), axis = 0))
+
+        result = sessionEtsoc.run([out_name], {in_name: testset[k]['data']})
+        testset[k]['resultcpu'] = int(np.argmax(np.array(result).squeeze(), axis = 0))
+
+    checkresults(testset)
+
 if __name__ == "__main__":
     """Launch mnist onns model over cpu and etglow and compare results."""
 
-    modelpath = "../onnx/mnist-12"
-    modelname = "mnist-12.onnx"
-    test_path = ['../images/images_1-1-28-28',
-                 '../images/images_3-400-640']
-    test_data_num = 1
+    modelpath = "../../../DownloadArtifactory/models/mnist"
+    modelname = "model.onnx"
 
     model = os.path.join(modelpath, modelname)
 
     session = ort.InferenceSession(model)
     sessionEtsoc = ort.InferenceSession(model, providers=['EtGlowExecutionProvider'])
 
-    input_name = session.get_inputs()[0].name
-    output_name = session.get_outputs()[0].name
+    test_pb_inputs(modelpath, session, sessionEtsoc)
 
-    inputs, ref_outputs = load_pb_test_data_set(modelpath)
-
-    outputsEtsoc = [sessionEtsoc.run([], {input_name: inputs[i]})[0] for i in range(test_data_num)]
-
-    # Compare the results with reference outputs up to 4 decimal places
-    for ref_o, o in zip(ref_outputs, outputsEtsoc):
-        np.testing.assert_almost_equal(ref_o, o, 4)    
-    print('ONNX EtGlowExecutionProvider Runtime outputs are similar to reference outputs!')
-
-    #load real images
-    testset = load_mnist_test(test_path)    
-    for k,v in testset.items():
-        result = session.run([output_name], {input_name: testset[k]['data']})
-        testset[k]['result'] = int(np.argmax(np.array(result).squeeze(), axis = 0))
-
-        result = sessionEtsoc.run([output_name], {input_name: testset[k]['data']})
-        testset[k]['resultcpu'] = int(np.argmax(np.array(result).squeeze(), axis = 0))
-
-    checkresults(testset)
+    test_images(session, sessionEtsoc)

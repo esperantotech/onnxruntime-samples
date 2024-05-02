@@ -22,7 +22,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 17)
 
-find_package(et-onnxruntime REQUIRED)
+find_package(onnxruntime REQUIRED)
 
 add_executable(mnist mnist.cpp)
-target_link_libraries(mnist PRIVATE et-onnxruntime::onnxruntime)
+target_link_libraries(mnist PRIVATE onnxruntime::onnxruntime)

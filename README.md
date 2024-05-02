@@ -1,22 +1,41 @@
 # ONNXRuntime Samples
 
 
-This repository contains a set of models and shows how to run them over onnxruntime
-stack using the CPU as well as our **EtGlowExecutionProvider** onnx provider.
-Each model uses the latest model populated at https://github.com/onnx/models 
+This repository contains a set of examples on how to run onnxruntime
+stack using Esperanto **EtGlowExecutionProvider** provider with a set of popular models.
+Exectuions with  CPU EP are also provided for comparision.
 
 [Wip] The MNIST and RESNET50 model will be the first models to be checked it and the
 models supported by our techdemo will be coming soon. 
 
 ## Repository Organization
-Each folder at root directory has the name model to be executed.
-Inside we find basically one folder for python onnxruntime API example and other c++
-folder for c++ onnxruntime API . Apart from that, there is a tarball file with
-the latest model available and some pb files test and also sometimes another
-folder with more files to be used as tests.
+We have a common folder at root directory called model with differents subfolder
+as many as generic subtypes of models we have. For each subtype model we found a python 
+and C++ folders which represents the API to be used for running on ONNX. 
+Inside the API folder we find source code or a script following this naming structure,
+model name and suffix <model>.py or <model>.cpp It depends on which folder belongs.
 
-- **<modelName>** Set of utilities to launch execution and verification.
-  - **python**
-  - **c++**
-  - **<testfiles>**  
-  - **<modelName.tar.gz>**  Models to be use as an examples.
+Models and datasets used by executables are downloading from artifactory server
+so that DownloadArtifactory folder is created once we execute the following cli inside de docker.
+<artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath DownloadArtifactory>
+
+- **README.md**
+- **<artifacts>**
+- **<DownloadArtifactory>**
+- **<models>** 
+  - **<modelSubTypeFamily_X>**
+    - **python**
+    - **c++**  
+  - **<modelSubTypeFamily_Y>**
+    - **python**
+    - **c++**  
+  - **<modelSubTypeFamily_Z>**
+    - **python**
+    - **c++**  
+  - ...
+
+## Before start
+Once you been inside the docker you should execute the cli bellows to set properly the environment:
+<sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends>
+<sudo pip install onnx>
+<sudo pip install opencv-python>
