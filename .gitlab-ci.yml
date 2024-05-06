@@ -92,7 +92,8 @@ variables:
   variables:
     ET_SDK_HOME: /usr/local/esperanto
     TEMP_DIR: temp
-    TIMEOUT: 1h
+    TIMEOUT: 15m
+    GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity ..
 
     CMD_SETUP_EXTRA_DEPS: |
       # Download models
