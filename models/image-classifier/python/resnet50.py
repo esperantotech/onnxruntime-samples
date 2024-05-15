@@ -212,7 +212,6 @@ def main(argv: Optional[Sequence[str]] = None):
 
     session = ort.InferenceSession(model)    
     sessionEtsoc = ort.InferenceSession(model, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
-
     test_pb_inputs(modelpath, session, sessionEtsoc)
     test_images(modelpath, session, sessionEtsoc)
 
