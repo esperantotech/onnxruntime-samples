@@ -48,6 +48,35 @@ data:
             server: artifactory
             version: 1
 
+  input_tensors:
+    dlrm_mlperf_10GB:
+      servers:
+        - path: sw-ci-inputs/input_tensors/dlrm_mlperf_10GB/
+          server: artifactory
+          version: 1
+
+  squadV1.1:
+    servers:
+    - rel_local_dir: sw-ci-inputs/text/question_answer/2
+      server: aws_s3
+      wget_options: '-O - | tar xzf -'
+      path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/text/question_answer/2.tar.gz'
+      version: 2
+      files:
+      - src: 2/squad-v1*
+        dst: data/
+
+  squadV2.0:
+    servers:
+    - rel_local_dir: sw-ci-inputs/text/question_answer/2
+      server: aws_s3
+      wget_options: '-O - | tar xzf -'
+      path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/text/question_answer/2.tar.gz'
+      version: 2
+      files:
+      - src: 2/squad-v2*
+        dst: data/
+
   models:
     mnist:
       servers:
@@ -91,5 +120,43 @@ data:
         server: artifactory
       version: 1
 
+    dlrm_mlperf_10GB_onnx:
+      servers:
+      - path: sw-ci-inputs/models/dlrm_mlperf_10GB_onnx
+        server: artifactory
+      version: 1
+    
+    bert_base_onnx:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/bert_tf_base_128/3
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/bert_tf_base_128/3.tar.gz'
+      version: 3
+
+    bert_large_onnx:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/bert_tf_large_128/4
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/bert_tf_large_128/4.tar.gz'
+      version: 4 
+
+    albert_128_pth_to_onnx:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/albert_128_pth_to_onnx/1
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/albert_128_pth_to_onnx/1.tar.gz'
+      version: 1
+
+    distilbert_128_pth_to_onnx:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/distilbert_128_pth_to_onnx/1
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/distilbert_128_pth_to_onnx/1.tar.gz'
+      version: 1
+      
 metadata:
   schema: '@YAML_SCHEMAS_DIR@/artifacts-schema.yaml'

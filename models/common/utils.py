@@ -59,17 +59,17 @@ def load_labels(path):
     return data
 
 def preprocess(input_data):
-    # convert the input data into the float32 input
+    # convert the input data to float32 datatype
     img_data = input_data.astype('float32')
 
-    #normalize
+    # normalize
     mean_vec = np.array([0.485, 0.456, 0.406])
     stddev_vec = np.array([0.229, 0.224, 0.225])
     norm_img_data = np.zeros(img_data.shape).astype('float32')
     for i in range(img_data.shape[0]):
         norm_img_data[i,:,:] = (img_data[i,:,:]/255 - mean_vec[i]) / stddev_vec[i]
         
-    #add batch channel
+    # Add batch dimension
     norm_img_data = norm_img_data.reshape(1, 3, 224, 224).astype('float32')
     return norm_img_data
 
@@ -103,6 +103,22 @@ def print_img_classification_results(labels, result, inference_time : float):
         percentage = f"{result[sorted_idx[i]] * 100:.2f}%"
         print(f'    #{i+1} ({percentage}): {labels[str(sorted_idx[i])][1]}')
 
+def test_with_tensor(tensorspath : Path, session : ort.InferenceSession):
+    # TODO: Support async runs and io bindings
+    output_tensors_names = [tensor.name for tensor in session.get_outputs()]
+
+    input_tensors = {}
+    for input in session.get_inputs():
+        input_tensors[input.name] = np.fromfile(f'{tensorspath}/{input.name}.bin', dtype=np.int64)
+        input_tensors[input.name] = input_tensors[input.name].reshape((1, 128))
+        # print(f'Loaded input tensor {input.name} - shape: {input_tensors[input.name].shape}')
+    
+    output_tensors = session.run(output_tensors_names, input_tensors)
+    # print(f'Model output tensor(s) names: {output_tensors_names}')
+
+    return input_tensors, output_tensors
+
+
 def test_with_images(imagespath : Path, session : ort.InferenceSession):
     """Test current session model against real inputs."""
     in_name, out_name = get_in_out_names(session)
@@ -121,8 +137,8 @@ def test_with_images(imagespath : Path, session : ort.InferenceSession):
         print_img_classification_results(labels, result, inference_time)
         print('==========================================')
 
-def parse_args(argv: Optional[Sequence[str]] = None) -> Namespace:
+
+def get_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory")
-
-    return parser.parse_args(argv)
+    return parser

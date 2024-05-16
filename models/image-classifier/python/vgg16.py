@@ -2,14 +2,18 @@
 
 import onnxruntime as ort
 import sys
+from argparse import ArgumentParser, Namespace
 from typing import Sequence, Optional
-from common import utils
 from pathlib import Path
 
+# Import utils.py
+sys.path.append(Path(__file__).resolve().parent.parent.parent.as_posix())
+from common import utils
 
 def main(argv: Optional[Sequence[str]] = None):
     """Launch vgg16 onnx model on cpu and etglow and compare results."""
-    args = utils.parse_args(argv)
+    parser = utils.get_arg_parser()
+    args = parser.parse_args(argv)
 
     artifacts_path = Path(args.artifacts)
     modelname = 'vgg16_bn_denso_onnx'

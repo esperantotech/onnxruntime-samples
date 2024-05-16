@@ -3,12 +3,18 @@
 import onnxruntime as ort
 import sys
 from typing import Sequence, Optional
-from common import utils
 from pathlib import Path
+from argparse import ArgumentParser, Namespace
+
+
+# Import utils.py
+sys.path.append(Path(__file__).resolve().parent.parent.parent.as_posix())
+from common import utils
 
 def main(argv: Optional[Sequence[str]] = None):
     """Launch mobilenet onnx model on cpu and etglow and compare results."""
-    args = utils.parse_args(argv)
+    parser = utils.get_arg_parser()
+    args = parser.parse_args(argv)
    
     artifacts_path = Path(args.artifacts)
     modelname = 'mobilenet_v3_small_denso_onnx'  # modelname = 'mobilenetv2-7' # modelname = 'mobilenet_v2_denso_onnx'

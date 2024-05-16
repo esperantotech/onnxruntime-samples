@@ -98,7 +98,7 @@ build:sonarqube-check:
 ###############################################################################
 ###############################################################################
 
-.tests:common:
+.tests:image-classification:
   extends:
     - .pod_large
     - .template_job
@@ -113,7 +113,7 @@ build:sonarqube-check:
     CXX_BUILD_PATH: models/image-classifier/c++/build
     CMD_SETUP_EXTRA_DEPS: |
       # Download models
-      sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
+      sudo apt-get install -y ffmpeg libsm6 libxext6 awscli --no-install-recommends 
       python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
       artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
 
@@ -129,17 +129,56 @@ build:sonarqube-check:
       if [ $API_TYPE == "C++" ]; then
         ./${CXX_BUILD_PATH}/mnist  -a ${CI_PROJECT_DIR}/DownloadArtifactory -mf ${CXX_SOURCE_PATH}/model-mnist-desc.json -v
       else
+        # image-classifier
         python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory
         #python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/mobilenet.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/vgg16.py --artifacts DownloadArtifactory
       fi
 
+.tests:language-model:
+  extends:
+    - .pod_large
+    - .template_job
+  stage: test
+  rules:
+    - *development_job_rule
+  variables:
+    TEMP_DIR: temp
+    TIMEOUT: 30m
+    GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
+    CXX_SOURCE_PATH: models/language-model/c++
+    CXX_BUILD_PATH: models/language-model/c++/build
+    CMD_SETUP_EXTRA_DEPS: |
+      # Download models
+      sudo apt-get install -y ffmpeg libsm6 libxext6 awscli --no-install-recommends
+      python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
+      artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
 
+      # Generate squad datasets
+      artifacts/squad-dataset-to-input-tensor.py --model bert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/bert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/squadV1.1/data/squad-v1.1-dev.json
+      artifacts/squad-dataset-to-input-tensor.py --model albert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/albert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/squadV1.1/data/squad-v1.1-dev.json
+      artifacts/squad-dataset-to-input-tensor.py --model distilbert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/distilbert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/squadV1.1/data/squad-v1.1-dev.json
+
+    CMD_BUILD: | 
+      if [ $API_TYPE == "C++" ]; then
+        cmake -S ${CXX_SOURCE_PATH} -B ${CXX_BUILD_PATH} -DCMAKE_TOOLCHAIN_FILE="${ET_SDK_HOME}/.builds/host/conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -G Ninja
+        cmake --build ${CXX_BUILD_PATH}
+      fi
+
+    CMD_SCRIPT: |
+      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
+
+      if [ $API_TYPE == "python" ]; then
+        python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory
+        python3 models/language-model/python/bert.py -b albert -a DownloadArtifactory
+        python3 models/language-model/python/bert.py -b bert-large -a DownloadArtifactory
+        python3 models/language-model/python/bert.py -b distilbert -a DownloadArtifactory
+      fi
 
 tests:image-classification:python:sw-sysemu:
   extends:
-    - .tests:common
+    - .tests:image-classification
   image:
     name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
   variables:
@@ -149,7 +188,7 @@ tests:image-classification:python:sw-sysemu:
 
 tests:image-classification:python:silicon:
   extends:
-    - .tests:common
+    - .tests:image-classification
   image:
     name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
     entrypoint: [""]
@@ -163,7 +202,7 @@ tests:image-classification:python:silicon:
 
 tests:image-classification:c++:sw-sysemu:
   extends:
-    - .tests:common
+    - .tests:image-classification
   image:
     name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
   variables:
@@ -173,7 +212,7 @@ tests:image-classification:c++:sw-sysemu:
   
 tests:image-classification:c++:silicon:
   extends:
-    - .tests:common
+    - .tests:image-classification
   image:
     name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
     entrypoint: [""]
@@ -181,6 +220,21 @@ tests:image-classification:c++:silicon:
     DEVICE_TYPE: silicon
     ORT_ETGLOW_DEVICE_TYPE: silicon    
     API_TYPE: C++
+  tags:
+    - silicon
+    - 1-card-silicon
+    - mv-gb-swci01
+
+tests:language-model:python:silicon:
+  extends:
+    - .tests:language-model
+  image:
+    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
+    entrypoint: [""]
+  variables:
+    DEVICE_TYPE: silicon
+    ORT_ETGLOW_DEVICE_TYPE: silicon
+    API_TYPE: python
   tags:
     - silicon
     - 1-card-silicon
