@@ -1,0 +1,6 @@
+#pragma once
+// clang-format off
+// Configuration values for et-inference-server
+constexpr auto VERSION_MAJOR = @et-onnxruntime-samples_VERSION_MAJOR@;
+constexpr auto VERSION_MINOR = @et-onnxruntime-samples_VERSION_MINOR@;
+constexpr auto VERSION_PATCH = @et-onnxruntime-samples_VERSION_PATCH@;

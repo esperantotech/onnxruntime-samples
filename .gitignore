@@ -8,5 +8,7 @@ EtGlowExecutionProvider_*
 onnxruntime_bundles/
 *.log
 
+build/
+
 #ignore temporary files
 *.*~

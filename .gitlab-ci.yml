@@ -20,7 +20,7 @@ default:
 
 variables:
   ET_SW_DEVELOP_DOCKER_IMAGE:
-    value: docker-sw-team.sc-artifactory1.esperanto.ai/convoke/ubuntu-22.04-et-sw-develop-stack:1.6.1
+    value: docker-sw-team.sc-artifactory1.esperanto.ai/convoke/ubuntu-22.04-et-sw-develop-stack:1.6.2
   ET_SDK_HOME:
     value: '/usr/local/esperanto'
   CMAKE_TOOLCHAIN_FILE:
@@ -94,17 +94,32 @@ variables:
     TEMP_DIR: temp
     TIMEOUT: 15m
     GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity ..
-
+    BUILD_PATH: models/image-classifier/c++/build
     CMD_SETUP_EXTRA_DEPS: |
       # Download models
       sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
       python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
       artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
 
+    CMD_BUILD: | 
+      if [ $API_TYPE == "C++" ]; then
+        mkdir -p $$BUILD_PATH
+        cd $$BUILD_PATH
+        cmake -S .. -B . -DCMAKE_TOOLCHAIN_FILE="${ET_SDK_HOME}/.builds/host/conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -G Ninja
+        cmake --build .
+        cd -
+      fi
+
     CMD_SCRIPT: |
-      source ${ET_SDK_HOME}/.builds/host/conanrun.sh    
-      python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory
-      python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
+      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
+
+      if [ $API_TYPE == "C++" ]; then
+        cd $$BUILD_PATH
+        ./mnist  -a ${CI_PROJECT_DIR}/DownloadArtifactory -mf ${CI_PROJECT_DIR}/models/image-classifier/c++/model-mnist-desc.json -v
+      else
+        python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory
+        #python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
+      fi
 
 tests:image-classification:python:sw-sysemu:
   extends:
@@ -129,8 +144,27 @@ tests:image-classification:python:silicon:
     - 1-card-silicon
     - mv-gb-swci01
 
-.tests:image-classification:c++:sw-sysemu:
-  stage: test
-
-.tests:image-classification:c++:sw-sysemu:
-  stage: test
+tests:image-classification:c++:sw-sysemu:
+  extends:
+    - .tests:common
+  image:
+    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
+  variables:
+    DEVICE_TYPE: sysemu
+    ORT_ETGLOW_DEVICE_TYPE: sysemu
+    API_TYPE: C++
+  
+tests:image-classification:c++:silicon:
+  extends:
+    - .tests:common
+  image:
+    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
+    entrypoint: [""]
+  variables:
+    DEVICE_TYPE: silicon
+    ORT_ETGLOW_DEVICE_TYPE: silicon    
+    API_TYPE: C++
+  tags:
+    - silicon
+    - 1-card-silicon
+    - mv-gb-swci01
