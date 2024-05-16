@@ -36,7 +36,7 @@ variables:
     - &development_job_rule
       if: ($CI_PIPELINE_SOURCE == "merge_request_event") && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH)
 
-.build:sonarqube-check:
+build:sonarqube-check:
   extends:
     - .pod_large
   stage: codequality
@@ -46,7 +46,7 @@ variables:
     - k8s
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event") && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH)
-      allow_failure: true # TODO: change to 'false' once analysis are verified correct & stable
+      allow_failure: false # TODO: change to 'false' once analysis are verified correct & stable
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       allow_failure: true
     - if: $CI_COMMIT_TAG
@@ -73,9 +73,9 @@ variables:
     - unzip ${SONAR_SCANNER_ARCHIVE_NAME}
     - export PATH=$PATH:$PWD/${SONAR_BUILD_WRAPPER}:$PWD/${SONAR_SCANNER_UNZIPED_NAME}/bin
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/${SONAR_BUILD_WRAPPER}:$PWD/${SONAR_SCANNER_UNZIPED_NAME}/lib
-  script:   
-    - cmake -S . -B .ci/sonarqube/build -DCMAKE_TOOLCHAIN_FILE=/usr/local/esperanto/.builds/host/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles"
-    - build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory make -C .ci/sonarqube/ clean all
+  script:
+    - cmake -S models/image-classifier/c++ -B .ci/sonarqube/build -DCMAKE_TOOLCHAIN_FILE=/usr/local/esperanto/.builds/host/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles"
+    - build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory make -C .ci/sonarqube/build clean all
     - sonar-scanner
     
 ###############################################################################
