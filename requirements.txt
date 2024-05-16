@@ -1,6 +1,7 @@
 artifacts_mgr_client
-opencv-python
+opencv-python-headless
 onnx
 pytest-xdist
 pyasn1
-transformers
+transformers>=4.40
+scipy

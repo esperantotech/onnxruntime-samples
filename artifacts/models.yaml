@@ -55,27 +55,59 @@ data:
           server: artifactory
           version: 1
 
-  squadV1.1:
-    servers:
-    - rel_local_dir: sw-ci-inputs/text/question_answer/2
-      server: aws_s3
-      wget_options: '-O - | tar xzf -'
-      path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/text/question_answer/2.tar.gz'
-      version: 2
-      files:
-      - src: 2/squad-v1*
-        dst: data/
+  datasets:
+    squadV1.1:
+      servers:
+      - rel_local_dir: sw-ci-inputs/text/question_answer/2
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/text/question_answer/2.tar.gz'
+        version: 2
+        files:
+        - src: 2/squad-v1*
+          dst: data/
 
-  squadV2.0:
+    squadV2.0:
+      servers:
+      - rel_local_dir: sw-ci-inputs/text/question_answer/2
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/text/question_answer/2.tar.gz'
+        version: 2
+        files:
+        - src: 2/squad-v2*
+          dst: data/
+
+  tokenizer:
     servers:
-    - rel_local_dir: sw-ci-inputs/text/question_answer/2
-      server: aws_s3
+    - server: aws_s3
+      rel_local_dir: sw-ci-inputs/text/tokenizer/8
+      version: 8 
       wget_options: '-O - | tar xzf -'
-      path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/text/question_answer/2.tar.gz'
-      version: 2
+      path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/text/tokenizer/8.tar.gz'
       files:
-      - src: 2/squad-v2*
-        dst: data/
+      - src: opt/*
+        dst: opt/
+      - src: vicuna/*
+        dst: vicuna/
+      - src: llama3/*
+        dst: llama3/
+      - src: clip_sd1_5/*
+        dst: clip_sd1_5/
+      - src: clip_sd2_1/*
+        dst: clip_sd2_1/
+      - src: albert/*
+        dst: albert/
+      - src: bert/*
+        dst: bert/
+      - src: distilbert/*
+        dst: distilbert/
+      - src: roberta/*
+        dst: roberta/
+      - src: mistral/*
+        dst: mistral/
+      - src: starcoder/*
+        dst: starcoder/
 
   models:
     mnist:
@@ -157,6 +189,94 @@ data:
         wget_options: '-O - | tar xzf -'
         path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/distilbert_128_pth_to_onnx/1.tar.gz'
       version: 1
-      
+
+    llama3-8b-instruct-fp16:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/llama3-8b-instruct-fp16/1
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/llama3-8b-instruct-fp16/1.tar.gz'
+      version: 1
+
+    llama3-8b-instruct-kvc-fp16:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/llama3-8b-instruct-kvc-fp16/2
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/llama3-8b-instruct-kvc-fp16/2.tar.gz'
+      version: 2
+
+    llama3-8b-instruct-kvc-int4:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/llama3-8b-instruct-kvc-int4/1
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/llama3-8b-instruct-kvc-int4/SR-awq.tar.gz'
+      version: 1
+
+    mistral-7b-fp16:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/mistral-7b-fp16/1
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/mistral-7b-fp16/1.tar.gz'
+      version: 1
+
+    mistral-7b-kvc-fp16:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/mistral-7b-kvc-fp16/3
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/mistral-7b-kvc-fp16/3.tar.gz'
+      version: 3
+
+    mistral-instruct-7b-kvc-fp16:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/mistral-instruct-7b-kvc-fp16/2
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/mistral-instruct-7b-kvc-fp16/2.tar.gz'
+      version: 2
+
+    mistral-instruct-7b-kvc-int4:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/mistral-instruct-7b-kvc-int4/1
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/mistral-instruct-7b-kvc-int4/TB-awq.tar.gz'
+      version: 1 
+
+    vicuna-1.5-7b-int4:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/vicuna-1.5-7b-int4/1
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/vicuna-1.5-7b-int4/TB-awq.tar.gz'
+      version: 1
+
+    vicuna-1.5-7b-kvc-int4:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/vicuna-1.5-7b-kvc-int4/2
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/vicuna-1.5-7b-kvc-int4/TB-awq-2.tar.gz'
+      version: 2
+
+    mistral-7b-int4:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/mistral-7b-int4/2
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/mistral-7b-int4/TB-awq-2.tar.gz'
+      version: 2
+
+    mistral-7b-kvc-int4:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/mistral-7b-kvc-int4/3
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/mistral-7b-kvc-int4/TB-awq-3.tar.gz'
+      version: 3
+
 metadata:
   schema: '@YAML_SCHEMAS_DIR@/artifacts-schema.yaml'

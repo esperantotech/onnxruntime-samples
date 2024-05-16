@@ -22,7 +22,7 @@ default:
 
 variables:
   ET_SW_DEVELOP_DOCKER_IMAGE:
-    value: docker-sw-team.sc-artifactory1.esperanto.ai/convoke/ubuntu-22.04-et-sw-develop-stack:1.6.5
+    value: docker-sw-team.sc-artifactory1.esperanto.ai/convoke/ubuntu-22.04-et-sw-develop-stack:1.6.8
   ET_SDK_HOME:
     value: '/usr/local/esperanto'
   CMAKE_TOOLCHAIN_FILE:
@@ -107,13 +107,17 @@ build:sonarqube-check:
     - *development_job_rule
   variables:
     TEMP_DIR: temp
-    TIMEOUT: 30m
+    TIMEOUT: 60m
     GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
     CXX_SOURCE_PATH: models/image-classifier/c++
     CXX_BUILD_PATH: models/image-classifier/c++/build
     CMD_SETUP_EXTRA_DEPS: |
       # Download models
-      sudo apt-get install -y ffmpeg libsm6 libxext6 awscli --no-install-recommends 
+      sudo apt-get update --fix-missing
+      sudo apt-get install -y awscli --no-install-recommends 
+      if [ $API_TYPE == "C++" ]; then
+        sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
+      fi
       python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
       artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
 
@@ -145,20 +149,25 @@ build:sonarqube-check:
     - *development_job_rule
   variables:
     TEMP_DIR: temp
-    TIMEOUT: 30m
+    TIMEOUT: 90m
     GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
     CXX_SOURCE_PATH: models/language-model/c++
     CXX_BUILD_PATH: models/language-model/c++/build
     CMD_SETUP_EXTRA_DEPS: |
       # Download models
-      sudo apt-get install -y ffmpeg libsm6 libxext6 awscli --no-install-recommends
+      sudo apt-get update --fix-missing
+      sudo apt-get install -y libsm6 libxext6 awscli --no-install-recommends
+      if [ $API_TYPE == "C++" ]; then
+        sudo apt-get install -y ffmpeg --no-install-recommends
+      fi
+
       python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
       artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
 
       # Generate squad datasets
-      artifacts/squad-dataset-to-input-tensor.py --model bert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/bert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/squadV1.1/data/squad-v1.1-dev.json
-      artifacts/squad-dataset-to-input-tensor.py --model albert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/albert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/squadV1.1/data/squad-v1.1-dev.json
-      artifacts/squad-dataset-to-input-tensor.py --model distilbert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/distilbert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/squadV1.1/data/squad-v1.1-dev.json
+      artifacts/squad-dataset-to-input-tensor.py --model bert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/bert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
+      artifacts/squad-dataset-to-input-tensor.py --model albert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/albert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
+      artifacts/squad-dataset-to-input-tensor.py --model distilbert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/distilbert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
 
     CMD_BUILD: | 
       if [ $API_TYPE == "C++" ]; then
@@ -170,10 +179,22 @@ build:sonarqube-check:
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
 
       if [ $API_TYPE == "python" ]; then
+        # bert
         python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory
         python3 models/language-model/python/bert.py -b albert -a DownloadArtifactory
         python3 models/language-model/python/bert.py -b bert-large -a DownloadArtifactory
         python3 models/language-model/python/bert.py -b distilbert -a DownloadArtifactory
+
+        # llama3
+        python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/llama3-8b-instruct-kvc-int4/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/llama3 -g 10
+        python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/llama3-8b-instruct-kvc-fp16/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/llama3 -g 10
+        
+        # vicuna 1.5b
+        python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/vicuna-1.5-7b-kvc-int4/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/vicuna -g 10
+
+        # mistral 7b
+        python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/mistral-instruct-7b-kvc-fp16/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/mistral -g 10
+
       fi
 
 tests:image-classification:python:sw-sysemu:
@@ -184,6 +205,7 @@ tests:image-classification:python:sw-sysemu:
   variables:
     DEVICE_TYPE: sysemu   
     ORT_ETGLOW_DEVICE_TYPE: sysemu
+    API_TYPE: python
     TIMEOUT: 90m
 
 tests:image-classification:python:silicon:
@@ -195,6 +217,7 @@ tests:image-classification:python:silicon:
   variables:
     DEVICE_TYPE: silicon
     ORT_ETGLOW_DEVICE_TYPE: silicon
+    API_TYPE: python
   tags:
     - silicon
     - 1-card-silicon
