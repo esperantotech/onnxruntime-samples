@@ -8,6 +8,8 @@ EtGlowExecutionProvider_*
 onnxruntime_bundles/
 *.log
 
+.vscode
+DownloadArtifactory
 build/
 
 #ignore temporary files
