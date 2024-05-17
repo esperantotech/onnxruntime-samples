@@ -3,6 +3,7 @@ include:
     ref: a782d2470d791ff3340dc0468cc6cf7c8956e3fd
     file:
       - rules/generic-workflow-conan.yaml
+      - pods/nano-pod.yaml
       - pods/large-pod.yaml
       - jobs/generic-k8s-job.yaml
       - rules/exec_maybe_interactively.yaml
@@ -12,6 +13,7 @@ include:
       - 'jobs/conan-jobs.yaml'
 
 stages:
+  - smoke
   - codequality
   - test
   
@@ -35,6 +37,20 @@ variables:
   rules:
     - &development_job_rule
       if: ($CI_PIPELINE_SOURCE == "merge_request_event") && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH)
+
+clang-format:
+  extends:
+    - .template_job
+    - .pod_nano
+  image: '${ET_SW_DEVELOP_DOCKER_IMAGE}'
+  stage: smoke
+  rules:
+    - *development_job_rule
+  variables:
+    CMD_SCRIPT: |
+      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
+      git fetch origin $CI_DEFAULT_BRANCH
+      git clang-format --diff origin/$CI_DEFAULT_BRANCH -- * | grep -e "clang-format did not modify any files$" -e "^no modified files to format$"
 
 build:sonarqube-check:
   extends:
