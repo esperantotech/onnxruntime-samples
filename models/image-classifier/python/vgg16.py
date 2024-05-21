@@ -23,8 +23,10 @@ def main(argv: Optional[Sequence[str]] = None):
     sess_options = ort.SessionOptions()
     sess_options.log_severity_level = log_severity_warning
 
-    poptions = {}
-    poptions['etglow_onnx_shape_params'] = "batch=1;height=224;width=224"
+    poptions = {
+        "etglow_greedy": "true",
+        "etglow_onnx_shape_params": "batch=1;height=224;width=224"
+    }
 
     session = ort.InferenceSession(modelpath)   
     session_etsoc = ort.InferenceSession(modelpath, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
