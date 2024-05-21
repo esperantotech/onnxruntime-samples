@@ -23,6 +23,7 @@ default:
 variables:
   ET_SW_DEVELOP_DOCKER_IMAGE:
     value: docker-sw-team.sc-artifactory1.esperanto.ai/convoke/ubuntu-22.04-et-sw-develop-stack:1.6.2
+    value: docker-sw-team.sc-artifactory1.esperanto.ai/convoke/ubuntu-22.04-et-sw-develop-stack:1.6.2
   ET_SDK_HOME:
     value: '/usr/local/esperanto'
   CMAKE_TOOLCHAIN_FILE:
@@ -108,7 +109,7 @@ build:sonarqube-check:
   variables:
     ET_SDK_HOME: /usr/local/esperanto
     TEMP_DIR: temp
-    TIMEOUT: 15m
+    TIMEOUT: 30m
     GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity ..
     BUILD_PATH: models/image-classifier/c++/build
     CMD_SETUP_EXTRA_DEPS: |
@@ -135,7 +136,11 @@ build:sonarqube-check:
       else
         python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory
         #python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
+        python3 models/image-classifier/python/mobilenet.py --artifacts DownloadArtifactory
+        python3 models/image-classifier/python/vgg16.py --artifacts DownloadArtifactory
       fi
+
+
 
 tests:image-classification:python:sw-sysemu:
   extends:
@@ -145,6 +150,7 @@ tests:image-classification:python:sw-sysemu:
   variables:
     DEVICE_TYPE: sysemu   
     ORT_ETGLOW_DEVICE_TYPE: sysemu
+    TIMEOUT: 90m
 
 tests:image-classification:python:silicon:
   extends:
