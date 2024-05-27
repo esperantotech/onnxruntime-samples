@@ -14,3 +14,8 @@ build/
 
 #ignore temporary files
 *.*~
+core.*
+
+#python
+__pycache__/
+*.pyc
