@@ -22,7 +22,7 @@ default:
 
 variables:
   ET_SW_DEVELOP_DOCKER_IMAGE:
-    value: docker-sw-team.sc-artifactory1.esperanto.ai/convoke/ubuntu-22.04-et-sw-develop-stack:1.6.4
+    value: docker-sw-team.sc-artifactory1.esperanto.ai/convoke/ubuntu-22.04-et-sw-develop-stack:1.6.5
   ET_SDK_HOME:
     value: '/usr/local/esperanto'
   CMAKE_TOOLCHAIN_FILE:
@@ -106,11 +106,11 @@ build:sonarqube-check:
   rules:
     - *development_job_rule
   variables:
-    ET_SDK_HOME: /usr/local/esperanto
     TEMP_DIR: temp
     TIMEOUT: 30m
-    GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity ..
-    BUILD_PATH: models/image-classifier/c++/build
+    GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
+    CXX_SOURCE_PATH: models/image-classifier/c++
+    CXX_BUILD_PATH: models/image-classifier/c++/build
     CMD_SETUP_EXTRA_DEPS: |
       # Download models
       sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
@@ -119,19 +119,15 @@ build:sonarqube-check:
 
     CMD_BUILD: | 
       if [ $API_TYPE == "C++" ]; then
-        mkdir -p $$BUILD_PATH
-        cd $$BUILD_PATH
-        cmake -S .. -B . -DCMAKE_TOOLCHAIN_FILE="${ET_SDK_HOME}/.builds/host/conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -G Ninja
-        cmake --build .
-        cd -
+        cmake -S ${CXX_SOURCE_PATH} -B ${CXX_BUILD_PATH} -DCMAKE_TOOLCHAIN_FILE="${ET_SDK_HOME}/.builds/host/conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -G Ninja
+        cmake --build ${CXX_BUILD_PATH}
       fi
 
     CMD_SCRIPT: |
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
 
       if [ $API_TYPE == "C++" ]; then
-        cd $$BUILD_PATH
-        ./mnist  -a ${CI_PROJECT_DIR}/DownloadArtifactory -mf ${CI_PROJECT_DIR}/models/image-classifier/c++/model-mnist-desc.json -v
+        ./${CXX_BUILD_PATH}/mnist  -a ${CI_PROJECT_DIR}/DownloadArtifactory -mf ${CXX_SOURCE_PATH}/model-mnist-desc.json -v
       else
         python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory
         #python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
