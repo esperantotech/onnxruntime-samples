@@ -13,6 +13,7 @@
 #include "ExecuteOnExit.hpp"
 #include "RawImage.hpp"
 
+#include <iostream>
 // libpng
 #include "png.h"
 
@@ -29,32 +30,32 @@
 namespace {
 
 // Number of bytes of the PNG image files signature.
-enum { PNG_SIGNATURE_BYTES = 8 };
+constexpr size_t PNG_SIGNATURE_BYTES = 8;
 
 // Class used to read a PNG image located in memory.
 class MemFile final {
-  const png_byte *current_;
-  const png_byte *data_;
+  const png_byte* current_;
+  const png_byte* data_;
   std::size_t size_;
 
 public:
-  explicit MemFile(const png_byte *pData, std::size_t size)
-  : current_(pData)
-  , data_(pData)
-  , size_(size) {
+  explicit MemFile(const png_byte* pData, std::size_t size)
+    : current_(pData)
+    , data_(pData)
+    , size_(size) {
   }
 
-  static void read(png_structp png, png_byte *buf, png_size_t len) {
-    auto *const mf = static_cast<MemFile *>(png_get_io_ptr(png));
+  static void read(const png_structp png, png_byte* buf, png_size_t len) {
+    auto* const mf = static_cast<MemFile*>(png_get_io_ptr(png));
     assert(mf != nullptr);
     assert(mf->data_ <= mf->current_);
     const auto bytesConsumed = size_t(mf->current_ - mf->data_);
     assert(bytesConsumed <= mf->size_);
     const auto remainingBytes = size_t(mf->size_ - bytesConsumed);
     if (remainingBytes < len) {
-      throw libpng_error("libpng internal error: read requested length (" + std::to_string(len)
-          + " bytes) is greater than available image data (" + std::to_string(remainingBytes)
-          + " of " + std::to_string(mf->size_) + " bytes)");
+      throw libpng_error("libpng internal error: read requested length (" + std::to_string(len) +
+                         " bytes) is greater than available image data (" + std::to_string(remainingBytes) + " of " +
+                         std::to_string(mf->size_) + " bytes)");
     }
     const auto n = std::min(len, remainingBytes);
     std::copy_n(mf->current_, n, buf);
@@ -62,43 +63,42 @@ public:
   }
 };
 
-[[noreturn]] void pngErrorHandler([[maybe_unused]] png_structp png, png_const_charp errorMsg) {
+[[noreturn]] void pngErrorHandler([[maybe_unused]] const png_structp png, png_const_charp errorMsg) {
   // The error handling routine must NOT return to the calling routine.
   throw libpng_error(errorMsg);
 }
 
 void pngWarningHandler([[maybe_unused]] png_structp png, [[maybe_unused]] png_const_charp msg) {
+  // TBD
 }
 
-auto getRowPointers(RawImage &img) -> std::vector<std::byte *> {
-  std::vector<std::byte *> result;
+auto getRowPointers(RawImage& img) -> std::vector<std::byte*> {
+  std::vector<std::byte*> result;
   result.reserve(img.height());
-  std::generate_n(std::back_inserter(result), img.height(),
-      [ptr = img.data(), rowBytes = img.rowBytes()]() mutable {
-        auto *res = ptr;
-        std::advance(ptr, rowBytes);
-        return res;
-      });
+  std::generate_n(std::back_inserter(result), img.height(), [ptr = img.data(), rowBytes = img.rowBytes()]() mutable {
+    auto* res = ptr;
+    std::advance(ptr, rowBytes);
+    return res;
+  });
   return result;
 }
 
 } // unnamed namespace
 
-auto isPNGImage(const std::vector<char> &data) -> bool {
+auto isPNGImage(const std::vector<char>& data) -> bool {
   /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) */
   auto pData = reinterpret_cast<png_const_bytep>(data.data());
-  return (PNG_SIGNATURE_BYTES <= data.size()) and (png_sig_cmp(pData, 0, PNG_SIGNATURE_BYTES) == 0);
+  return (PNG_SIGNATURE_BYTES <= data.size()) && (png_sig_cmp(pData, 0, PNG_SIGNATURE_BYTES) == 0);
 }
 
-auto decodePNGImage(const std::vector<char> &data) -> std::variant<std::string, RawImage> {
+auto decodePNGImage(const std::vector<char>& data) -> std::variant<std::string, RawImage> {
   // Validate signature.
-  if (not isPNGImage(data)) {
+  if (!isPNGImage(data)) {
     return std::string("invalid image file signature");
   }
 
   // Initialize
-  png_structp png =
-      png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, pngErrorHandler, pngWarningHandler);
+  png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, pngErrorHandler, pngWarningHandler);
   if (png == nullptr) {
     return std::string("cannot initialize the PNG decoding process");
   }
@@ -110,27 +110,28 @@ auto decodePNGImage(const std::vector<char> &data) -> std::variant<std::string, 
   freePNGResources.reset([&png, &pngInfo] { png_destroy_read_struct(&png, &pngInfo, nullptr); });
 
   /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) */
-  MemFile mf(reinterpret_cast<const png_byte *>(data.data()), data.size());
+  MemFile mf(reinterpret_cast<const png_byte*>(data.data()), data.size());
   png_set_read_fn(png, nullptr, static_cast<png_rw_ptr>(&MemFile::read));
 
   /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) */
-  png_init_io(png, reinterpret_cast<FILE *>(&mf));
+  png_init_io(png, reinterpret_cast<FILE*>(&mf));
   png_set_sig_bytes(png, 0);
   png_read_info(png, pngInfo);
 
   const std::size_t width = png_get_image_width(png, pngInfo);
   const std::size_t height = png_get_image_height(png, pngInfo);
   const png_byte colorType = png_get_color_type(png, pngInfo);
-  const png_byte bitDepth = png_get_bit_depth(png, pngInfo);
-  if (bitDepth != CHAR_BIT) {
+
+  if (const png_byte bitDepth = png_get_bit_depth(png, pngInfo); bitDepth != CHAR_BIT) {
     return std::string("invalid image: bit depth not supported.");
   }
   const bool isGray = colorType == PNG_COLOR_TYPE_GRAY;
   const bool isRGB = (colorType == PNG_COLOR_TYPE_RGB);
-  if (not(isGray or isRGB)) {
+
+  if (const bool isRGBA = (colorType == PNG_COLOR_TYPE_RGBA); !(isGray || isRGB || isRGBA)) {
     return std::string("invalid image: color type not supported.");
   }
-  const std::size_t bytesPerPixel = isGray ? 1 : 3;
+  const std::size_t bytesPerPixel = isGray ? 1 : isRGB ? 3 : 4;
 
   png_read_update_info(png, pngInfo);
   const auto rowBytes = png_get_rowbytes(png, pngInfo);

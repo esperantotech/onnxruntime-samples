@@ -1,6 +1,0 @@
-{
-    "name": "MNIST",
-    "class": "ImageClassifier",
-    "format": "ONNX",
-    "model_file": "model.onnx"
-  }

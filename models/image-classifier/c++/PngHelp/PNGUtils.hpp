@@ -9,20 +9,22 @@
  *-------------------------------------------------------------------------
  */
 
-#include "ErrorMng.hpp"
+#ifndef _PNGUTILS_HPP_
+#define _PNGUTILS_HPP_
 
-#include <cstdlib>  // EXIT_FAILURE, exit()
-#include <iostream> // cerr
+#include "RawImage.hpp"
 
-// Outputs the provided error message and
-// exits the program execution with an error code.
-void exitWithErrorMsg(std::string_view msg) {
-  std::cerr << "\nerror: " << msg << std::endl;
-  exit(EXIT_FAILURE);
-}
-void exitWithErrorMsg(const std::string& msg) {
-  exitWithErrorMsg(std::string_view(msg));
-}
-void exitWithErrorMsg(const char* msg) {
-  exitWithErrorMsg((msg != nullptr) ? std::string_view(msg) : "unknown");
-}
+#include <stdexcept> // runtime_error
+#include <string>
+#include <variant>
+#include <vector>
+
+struct libpng_error final : std::runtime_error {
+  using std::runtime_error::runtime_error;
+};
+
+auto isPNGImage(const std::vector<char>& data) -> bool;
+
+auto decodePNGImage(const std::vector<char>& data) -> std::variant<std::string, RawImage>;
+
+#endif //_PNGUTILS_HPP_

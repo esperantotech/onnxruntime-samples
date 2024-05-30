@@ -14,8 +14,8 @@
 
 #include <cassert>
 #include <cstddef> // byte, size_t
+#include <iostream>
 #include <vector>
-
 // Class that implements raw image data.
 class RawImage final {
   std::size_t width_;
@@ -25,13 +25,12 @@ class RawImage final {
   std::vector<std::byte> data_;
 
 public:
-  explicit RawImage(
-      std::size_t width, std::size_t height, std::size_t bytesPerPixel, std::size_t rowBytes)
-  : width_(width)
-  , height_(height)
-  , bytesPerPixel_(bytesPerPixel)
-  , rowBytes_(rowBytes)
-  , data_(height * rowBytes) {
+  explicit RawImage(std::size_t width, std::size_t height, std::size_t bytesPerPixel, std::size_t rowBytes)
+    : width_(width)
+    , height_(height)
+    , bytesPerPixel_(bytesPerPixel)
+    , rowBytes_(rowBytes)
+    , data_(height * rowBytes) {
     assert(width_ > 0);
     assert(height_ > 0);
     assert(bytesPerPixel_ > 0);
@@ -39,7 +38,7 @@ public:
     assert(width_ * bytesPerPixel_ <= rowBytes_);
   }
   explicit RawImage(std::size_t width, std::size_t height, std::size_t bytesPerPixel)
-  : RawImage(width, height, bytesPerPixel, width * bytesPerPixel) {
+    : RawImage(width, height, bytesPerPixel, width * bytesPerPixel) {
   }
 
   std::size_t width() const noexcept {
@@ -58,10 +57,10 @@ public:
     return rowBytes_;
   }
 
-  const std::byte *data() const noexcept {
+  const std::byte* data() const noexcept {
     return data_.data();
   }
-  std::byte *data() noexcept {
+  std::byte* data() noexcept {
     return data_.data();
   }
 };

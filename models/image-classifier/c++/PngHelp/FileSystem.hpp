@@ -9,22 +9,22 @@
  *-------------------------------------------------------------------------
  */
 
-#ifndef _PNGUTILS_HPP_
-#define _PNGUTILS_HPP_
+#pragma once
 
-#include "RawImage.hpp"
+#if __has_include(<filesystem>)
+#include <filesystem>
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+// NOLINTNEXTLINE(cert-dcl58-cpp)
+namespace std {
+// NOLINTNEXTLINE(misc-unused-alias-decls)
+namespace filesystem = std::experimental::filesystem;
+} // namespace std
+#else
+#error "cannot include the filesystem library"
+#endif
 
-#include <stdexcept> // runtime_error
-#include <string>
-#include <variant>
 #include <vector>
 
-struct libpng_error final : std::runtime_error {
-  using std::runtime_error::runtime_error;
-};
-
-auto isPNGImage(const std::vector<char> &data) -> bool;
-
-auto decodePNGImage(const std::vector<char> &data) -> std::variant<std::string, RawImage>;
-
-#endif //_PNGUTILS_HPP_
+auto readFile(const std::filesystem::path& filename) -> std::vector<char>;
+void writeFile(const std::filesystem::path& filename, std::vector<char> data);

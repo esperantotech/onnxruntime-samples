@@ -107,7 +107,8 @@ build:sonarqube-check:
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
 
       if [ $API_TYPE == "C++" ]; then
-        ./${CXX_BUILD_PATH}/mnist  -a ${CI_PROJECT_DIR}/DownloadArtifactory -mf ${CXX_SOURCE_PATH}/model-mnist-desc.json -v
+        ./${CXX_BUILD_PATH}/mnist -artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory -verbose        
+        ./${CXX_BUILD_PATH}/resnet -artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory -batchSize 1 -verbose
       else
         # image-classifier
         python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory

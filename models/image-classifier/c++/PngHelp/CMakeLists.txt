@@ -9,35 +9,25 @@
 #------------------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.20)
-project(ImgUtilLib VERSION 1.0.1 DESCRIPTION "ImgUtilitites lib to manage Images from dataset")
+project(PngHelpLib VERSION 1.0.1 DESCRIPTION "Png utilities lib to manage Images from dataset")
 
 include(GNUInstallDirs)
 
-find_package(glow REQUIRED)
 find_package(PNG REQUIRED)
 
-add_library(ImgUtilLib SHARED CommandLine.cpp 
-        ErrorMng.cpp
-        FileSystem.cpp        
-        PNGUtils.cpp
-        PreprocessImageClassifier.cpp
-        Types.cpp        
-        Utils.cpp)
+add_library(PngHelpLib SHARED FileSystem.cpp PNGUtils.cpp HelperFunctions.cpp)
 
-add_library(ImgUtilLib::ImgUtilLib ALIAS ImgUtilLib)
+add_library(PngHelpLib::PngHelpLib ALIAS PngHelpLib)
 
-set_target_properties(ImgUtilLib PROPERTIES 
+set_target_properties(PngHelpLib PROPERTIES 
         VERSION ${PROJECT_VERSION}
         SOVERSION ${PROJECT_VERSION_MAJOR}
-        PUBLIC_HEADER include/ImgUtilLib.h)
+        PUBLIC_HEADER include/PngHelpLib.h)
 
-target_link_libraries(ImgUtilLib 
-        PUBLIC
-                glow::Api
+target_link_libraries(PngHelpLib 
         PRIVATE 
-                PNG::PNG        
-                glow::Base)
+            PNG::PNG)
 
-target_include_directories(ImgUtilLib
+target_include_directories(PngHelpLib
         PUBLIC
                 ${CMAKE_CURRENT_SOURCE_DIR})

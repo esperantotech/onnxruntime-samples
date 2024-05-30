@@ -19,19 +19,20 @@ class ExecuteOnExit final {
   VoidFuncPtr cleanupFn_ = nullptr;
 
 public:
-  ExecuteOnExit(const ExecuteOnExit &) = delete;
-  ExecuteOnExit(ExecuteOnExit &&) = delete;
-  auto operator=(const ExecuteOnExit &) -> ExecuteOnExit & = delete;
-  auto operator=(ExecuteOnExit &&) -> ExecuteOnExit & = delete;
+  ExecuteOnExit(const ExecuteOnExit&) = delete;
+  ExecuteOnExit(ExecuteOnExit&&) = delete;
+  auto operator=(const ExecuteOnExit&) -> ExecuteOnExit& = delete;
+  auto operator=(ExecuteOnExit &&) -> ExecuteOnExit& = delete;
 
   explicit ExecuteOnExit(VoidFuncPtr func = nullptr) noexcept
-  : cleanupFn_(func) {
+    : cleanupFn_(func) {
   }
   ~ExecuteOnExit() noexcept try {
     if (cleanupFn_) {
       cleanupFn_();
     }
   } catch (...) {
+    // TBD
   }
   // Replace the cleanup function and returns the old one.
   auto reset(VoidFuncPtr func = nullptr) noexcept -> VoidFuncPtr {

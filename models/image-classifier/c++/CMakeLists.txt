@@ -31,9 +31,9 @@ configure_file(Config.h.in Config.h)
 
 find_package(fmt REQUIRED)
 find_package(onnxruntime REQUIRED)
-find_package(nlohmann_json REQUIRED)
+find_package(gflags REQUIRED)
 
-add_subdirectory(ImgUtilities)
+add_subdirectory(PngHelp)
 
 add_executable(mnist mnist.cpp)
 
@@ -47,6 +47,24 @@ target_link_libraries(mnist
     PRIVATE 
         onnxruntime::onnxruntime 
         fmt::fmt
-        ImgUtilLib::ImgUtilLib        
-        nlohmann_json::nlohmann_json
+        gflags::gflags
+        PngHelpLib::PngHelpLib
+)
+
+add_executable(resnet resnet.cpp)
+
+target_include_directories(resnet
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE
+        ${PROJECT_BINARY_DIR}
+        ${PROJECT_SOURCE_DIR}
+)
+
+target_link_libraries(resnet
+    PRIVATE
+        onnxruntime::onnxruntime
+        fmt::fmt
+        gflags::gflags
+        PngHelpLib::PngHelpLib
 )

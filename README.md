@@ -55,12 +55,12 @@ Inside the API folder we find source code or a script following this naming stru
 │   │   ├── c++
 │   │   │   ├── CMakeLists.txt
 │   │   │   ├── Config.h.in
-│   │   │   ├── ImgUtilities
+│   │   │   ├── PngHelp
 │   │   │   │   ├── CMakeLists.txt
 │   │   │   │   ├── ...
 │   │   │   │   └── ...
 │   │   │   ├── mnist.cpp
-│   │   │   └── model-mnist-desc.json
+│   │   │   └── resnet.cpp
 │   │   └── python
 │   │       ├── mnist.py
 │   │       ├── mobilenet.py
@@ -158,25 +158,19 @@ the name, class of model, format, model_file_name, layout, number of channels, e
 
 It might be interesting to firstly call `-h` to see what paramters each example accepts:
 ```
-./models/image-classifier/c++/build/mnist -h
-ONNXRUNTIME SAMPLES 1.0.0, Copyright (C) 2023 Esperanto Technologies, Inc.
+./models/image-classifier/c++/build/mnist -help
+mnist: Usage: example-function [OPTION] ...
 
-Usage: mnist [OPTION]...
-Options:
-    -h, --help                          Print this help message
-
-    -a, --artifacts-folder              Absolute folder where the models and datasets are (e.g.: /home/et/SW-artifacts)
-Mandatory options:
-    -mf, --model-info-file <filename>   JSON file with the model description (optional if FILE is provided)
-
-Optional options:
-    -b, --batch-size <N>                Number of images per batch (default:     -v, --verbose                       Verbose output
-
+  Flags from /home/rafa/WorkSpace/onnxruntime-samples/models/image-classifier/c++/mnist.cpp:
+    -artifact_folder (Absolute folder where the models and datasets are)
+      type: string default: "../../../DownloadArtifactory"
+    -h (help) type: bool default: false
+    -verbose (Verbose output) type: bool default: false
 ```
 
 Example execution:
 ```
-$ ./models/image-classifier/c++/build/mnist -a ./DownloadArtifactory/ -mf ./models/image-classifier/c++/model-mnist-desc.json 
+$ ./models/image-classifier/c++/build/mnist -artifact_folder /home/rafa/WorkSpace/onnxruntime-samples/DownloadArtifactory -verbose
 artifacts folder placed on ./DownloadArtifactory/
 EtGlowExecutionProvider
 CPUExecutionProvider

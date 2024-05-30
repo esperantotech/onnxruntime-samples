@@ -17,7 +17,7 @@
 #include <iterator> // advance()
 #include <limits>
 
-auto readFile(const std::filesystem::path &filename) -> std::vector<char> {
+auto readFile(const std::filesystem::path& filename) -> std::vector<char> {
   const auto fileSize = std::filesystem::file_size(filename);
   std::vector<char> buff(fileSize);
 
@@ -25,9 +25,9 @@ auto readFile(const std::filesystem::path &filename) -> std::vector<char> {
   f.exceptions(std::ios::failbit);
 
   auto numBytes = buff.size();
-  auto *p = buff.data();
-  for (const auto maxReadBytes = std::numeric_limits<std::streamsize>::max();
-       maxReadBytes < numBytes; std::advance(p, maxReadBytes), numBytes -= maxReadBytes) {
+  auto* p = buff.data();
+  for (const auto maxReadBytes = std::numeric_limits<std::streamsize>::max(); maxReadBytes < numBytes;
+       std::advance(p, maxReadBytes), numBytes -= maxReadBytes) {
     f.read(p, maxReadBytes);
   }
   assert(numBytes <= std::numeric_limits<std::streamsize>::max());
@@ -36,9 +36,9 @@ auto readFile(const std::filesystem::path &filename) -> std::vector<char> {
   return buff;
 }
 
-void writeFile(const std::filesystem::path &filename, std::vector<char> data) {
-  const auto &dirname = filename.parent_path();
-  if (not dirname.empty()) {
+void writeFile(const std::filesystem::path& filename, std::vector<char> data) {
+
+  if (const auto& dirname = filename.parent_path(); !dirname.empty()) {
     std::filesystem::create_directories(dirname);
   }
 
@@ -46,9 +46,9 @@ void writeFile(const std::filesystem::path &filename, std::vector<char> data) {
   f.exceptions(std::ios::failbit);
 
   auto numBytes = data.size();
-  auto *p = data.data();
-  for (const auto maxWriteBytes = std::numeric_limits<std::streamsize>::max();
-       maxWriteBytes < numBytes; std::advance(p, maxWriteBytes), numBytes -= maxWriteBytes) {
+  auto* p = data.data();
+  for (const auto maxWriteBytes = std::numeric_limits<std::streamsize>::max(); maxWriteBytes < numBytes;
+       std::advance(p, maxWriteBytes), numBytes -= maxWriteBytes) {
     f.write(p, maxWriteBytes);
   }
   assert(numBytes <= std::numeric_limits<std::streamsize>::max());
