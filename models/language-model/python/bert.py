@@ -61,25 +61,22 @@ def main(argv: Optional[Sequence[str]] = None):
     modelpath = artifacts_path / f'models/{modelname}/model.onnx'
     predictionpath = tensorspath / 'prediction.json'
 
-    # logging messages
-    log_severity_verbose = 0
-    log_severity_warning = 2
-    log_severity_error = 3
-    ort.set_default_logger_severity(log_severity_verbose)
     sess_options = ort.SessionOptions()
-    sess_options.log_severity_level = log_severity_warning
+    utils.set_verbose_output(sess_options, args.verbose)
 
     # provider options
-    poptions = {}
-    poptions['etglow_onnx_shape_params'] = "batch_size=1;sequence_length=128;Squeezeoutput_start_logits_dim_1=128"
-    
+    poptions = {
+        "etglow_greedy": "true",
+        "etglow_onnx_shape_params": "batch_size=1;sequence_length=128;Squeezeoutput_start_logits_dim_1=128"
+    }
+
     # init onnx rt sessions
-    session_cpu    = ort.InferenceSession(modelpath, providers=['CPUExecutionProvider'])
-    # session_etglow = ort.InferenceSession(modelpath, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
+    session_cpu    = ort.InferenceSession(modelpath, sess_options, providers=['CPUExecutionProvider'])
+    session_etglow = ort.InferenceSession(modelpath, sess_options, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
 
     # launch tests and get input and output tensors
     input_tensors_cpu, output_tensor_cpu = utils.test_with_tensor(tensorspath, session_cpu)
-    # input_tensors_etglow, output_tensor_etglow = utils.test_with_tensor(tensorspath, session_etglow)
+    input_tensors_etglow, output_tensor_etglow = utils.test_with_tensor(tensorspath, session_etglow)
 
     # decode output into text
     answer_cpu = get_answer_bert(output_tensor_cpu, input_tensors_cpu, tokenizer)
@@ -93,6 +90,7 @@ def main(argv: Optional[Sequence[str]] = None):
     print(f"Dataset answer is: {prediction[0]['answer']}")
     print(f"CPU EP answer is: {answer_cpu}")
     # print(f"ETGLOW EP answer is: {answer_etglow}")
+    print(f"ETGLOW EP run is disabled (See SW-20984)")
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

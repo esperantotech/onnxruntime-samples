@@ -13,12 +13,14 @@ from pathlib import Path
 sys.path.append(Path(__file__).resolve().parent.parent.parent.as_posix())
 from common import utils
 
+
 def get_in_out_names(session):
     """Get input and output data name of model"""
     input_name = session.get_inputs()[0].name
     output_name = session.get_outputs()[0].name
 
     return (input_name, output_name)    
+
 
 def load_mnist_test(test_path):
     """Load images to be tested"""
@@ -50,17 +52,19 @@ def load_mnist_test(test_path):
 
     return(testset)
 
+
 def checkresults(testset):
     """Compare result between cpu and provider"""
     
     for k, v in testset.items():
         if testset[k]['result'] == testset[k]['resultcpu'] :
-            print(f'Image {k} is OK \n\tidentified as number {testset[k]["resultcpu"]}')
+            print(f'Image {k} is OK! .. \tidentified as number {testset[k]["resultcpu"]}')
         else:
             print("****************")
             print(f'Image {k} FAILS:')
             print(f'\tExpected result is {testset[k]["result"]} \n\tobtained in provider {testset[k]["resultcpu"]}')
             print("****************")
+
 
 def test_images(imagespath : Path, session, sessionEtsoc):
     """Test current session model against real inputs."""
@@ -80,6 +84,7 @@ def test_images(imagespath : Path, session, sessionEtsoc):
 
     checkresults(testset)
 
+
 def main(argv: Optional[Sequence[str]] = None):    
     """Launch MNIST onnx model over cpu and etglow and compare results."""
     parser = utils.get_arg_parser()
@@ -92,15 +97,16 @@ def main(argv: Optional[Sequence[str]] = None):
     imagespath = artifacts_path /'input_data/images/'
     protobufpath =  artifacts_path / 'input_data/protobuf/mnist/'
 
-    print(modelpath)
+    sess_options = ort.SessionOptions()
+    utils.set_verbose_output(sess_options, args.verbose)
 
-    session = ort.InferenceSession(modelpath)
-    sessionEtsoc = ort.InferenceSession(modelpath, providers=['EtGlowExecutionProvider'])
+    session_cpu    = ort.InferenceSession(modelpath, sess_options, providers=['CPUExecutionProvider'])
+    session_etglow = ort.InferenceSession(modelpath, sess_options, providers=['EtGlowExecutionProvider'])
 
-    test_images(imagespath, session, sessionEtsoc)
+    test_images(imagespath, session_cpu, session_etglow)
 
-    utils.test_with_protobuf(protobufpath, session)
-    utils.test_with_protobuf(protobufpath, sessionEtsoc)
+    utils.test_with_protobuf(protobufpath, session_cpu)
+    utils.test_with_protobuf(protobufpath, session_etglow)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from argparse import ArgumentParser, Namespace
 from typing import Sequence, Optional
 from pathlib import Path
 
+
 def load_pb_data(protobufpath : Path) -> np.ndarray:
     """Load protobuf test dataset"""
     pb_data = []
@@ -22,13 +23,16 @@ def load_pb_data(protobufpath : Path) -> np.ndarray:
 
     return pb_data
 
+
 def softmax(x):
     x = x.reshape(-1)
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum(axis=0)
 
+
 def postprocess(result):
     return softmax(np.array(result)).tolist()
+
 
 def get_in_out_names(session):
     """Get input and output data name of model"""
@@ -37,10 +41,12 @@ def get_in_out_names(session):
 
     return (input_name, output_name)
 
+
 def check_and_compare(ref_outputs : np.ndarray, output_etsoc : np.ndarray):
     """Compare the results with reference outputs up to 4 decimal places"""
     for ref_o, o in zip(ref_outputs, output_etsoc):
         np.testing.assert_almost_equal(ref_o, o, 4)    
+
 
 def test_with_protobuf(protobufpath : Path, session : ort.InferenceSession):
     """Test pb inputs given by the owner of model"""
@@ -53,10 +59,12 @@ def test_with_protobuf(protobufpath : Path, session : ort.InferenceSession):
         golden_tensor = load_pb_data(protobufpath / f'test_data_set_{i}/output_0.pb')
         check_and_compare(golden_tensor, output_tensor)
 
+
 def load_labels(path):
     with open(path) as f:
         data = json.load(f)
     return data
+
 
 def preprocess(input_data):
     # convert the input data to float32 datatype
@@ -72,6 +80,7 @@ def preprocess(input_data):
     # Add batch dimension
     norm_img_data = norm_img_data.reshape(1, 3, 224, 224).astype('float32')
     return norm_img_data
+
 
 def load_image_files(images_path : Path) -> dict:
     """Load .png images from the specified directory"""
@@ -91,6 +100,7 @@ def load_image_files(images_path : Path) -> dict:
 
     return(images)
 
+
 def print_img_classification_results(labels, result, inference_time : float):
     """Print image classification results including inference execution time and confidence percentage"""
 
@@ -102,6 +112,7 @@ def print_img_classification_results(labels, result, inference_time : float):
     for i in range(5):
         percentage = f"{result[sorted_idx[i]] * 100:.2f}%"
         print(f'    #{i+1} ({percentage}): {labels[str(sorted_idx[i])][1]}')
+
 
 def test_with_tensor(tensorspath : Path, session : ort.InferenceSession):
     # TODO: Support async runs and io bindings
@@ -137,8 +148,17 @@ def test_with_images(imagespath : Path, session : ort.InferenceSession):
         print_img_classification_results(labels, result, inference_time)
         print('==========================================')
 
+def set_verbose_output(options, enabled):
+    if not enabled:
+        return
+    log_severity_verbose = 0
+    log_severity_warning = 2
+    ort.set_default_logger_severity(log_severity_verbose)
+    options.log_severity_level = log_severity_warning
+
 
 def get_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory")
+    parser.add_argument("-v", "--verbose", default=False)
     return parser
