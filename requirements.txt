@@ -3,3 +3,4 @@ opencv-python
 onnx
 pytest-xdist
 pyasn1
+transformers
