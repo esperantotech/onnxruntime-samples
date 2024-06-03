@@ -58,11 +58,11 @@ def checkresults(testset):
     
     for k, v in testset.items():
         if testset[k]['result'] == testset[k]['resultcpu'] :
-            print(f'Image {k} is OK! .. \tidentified as number {testset[k]["resultcpu"]}')
+            print(f'Image {k} is OK! .. \tidentified as number {testset[k]["result"]}')
         else:
             print("****************")
             print(f'Image {k} FAILS:')
-            print(f'\tExpected result is {testset[k]["result"]} \n\tobtained in provider {testset[k]["resultcpu"]}')
+            print(f'\tExpected result is {testset[k]["resultcpu"]} \n\tobtained in provider {testset[k]["result"]}')
             print("****************")
 
 
@@ -77,10 +77,10 @@ def test_images(imagespath : Path, session, sessionEtsoc):
     testset = load_mnist_test(test_path)    
     for k,v in testset.items():
         result = session.run([out_name], {in_name: testset[k]['data']})
-        testset[k]['result'] = int(np.argmax(np.array(result).squeeze(), axis = 0))
+        testset[k]['resultcpu'] = int(np.argmax(np.array(result).squeeze(), axis = 0))
 
         result = sessionEtsoc.run([out_name], {in_name: testset[k]['data']})
-        testset[k]['resultcpu'] = int(np.argmax(np.array(result).squeeze(), axis = 0))
+        testset[k]['result'] = int(np.argmax(np.array(result).squeeze(), axis = 0))
 
     checkresults(testset)
 
