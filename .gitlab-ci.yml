@@ -149,7 +149,7 @@ build:sonarqube-check:
     - *development_job_rule
   variables:
     TEMP_DIR: temp
-    TIMEOUT: 90m
+    TIMEOUT: 110m
     GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
     CXX_SOURCE_PATH: models/language-model/c++
     CXX_BUILD_PATH: models/language-model/c++/build
@@ -181,6 +181,7 @@ build:sonarqube-check:
       if [ $API_TYPE == "python" ]; then
         # bert
         python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory
+        
         python3 models/language-model/python/bert.py -b albert -a DownloadArtifactory
         python3 models/language-model/python/bert.py -b bert-large -a DownloadArtifactory
         python3 models/language-model/python/bert.py -b distilbert -a DownloadArtifactory
@@ -195,7 +196,11 @@ build:sonarqube-check:
         # mistral 7b
         python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/mistral-instruct-7b-kvc-fp16/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/mistral -g 10
 
+        # llava
+        python3 models/language-model/python/llava.py -a DownloadArtifactory -i artifacts/doge.jpg
+
       fi
+
 
 tests:image-classification:python:sw-sysemu:
   extends:

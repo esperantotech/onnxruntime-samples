@@ -149,12 +149,16 @@ def test_with_images(imagespath : Path, session : ort.InferenceSession):
         print('==========================================')
 
 def set_verbose_output(options, enabled):
-    if not enabled:
-        return
     log_severity_verbose = 0
     log_severity_warning = 2
-    ort.set_default_logger_severity(log_severity_verbose)
-    options.log_severity_level = log_severity_warning
+    log_severity_error = 3
+    
+    if not enabled:
+        ort.set_default_logger_severity(log_severity_error)
+        options.log_severity_level = log_severity_error
+    else:
+        ort.set_default_logger_severity(log_severity_verbose)
+        options.log_severity_level = log_severity_warning
 
 
 def get_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
