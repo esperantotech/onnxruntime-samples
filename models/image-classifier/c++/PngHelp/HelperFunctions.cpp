@@ -25,7 +25,7 @@
 
 auto loadImage(const std::filesystem::path& filename) -> RawImage {
   using namespace std::string_literals;
-  if (not std::filesystem::exists(filename)) {
+  if (!std::filesystem::exists(filename)) {
     throw BadImageFile(filename, "file does not exists");
   }
   const auto pngData = readFile(filename);
@@ -40,7 +40,7 @@ auto loadLabels(const std::string& filename) -> std::vector<std::string> {
   std::vector<std::string> output;
 
   std::ifstream file(filename);
-  if (file) {
+  if (file.is_open()) {
     std::string s;
     while (getline(file, s)) {
       // skip entry 0
@@ -80,4 +80,15 @@ auto directoryFiles(const std::filesystem::path& path, const char* pattern) -> s
   }
   std::sort(result.begin(), result.end());
   return result;
+}
+
+auto checkImgExists(std::string imgName, std::vector<fs::path> imgFilesPath) -> bool {
+  bool isInList = false;
+  for (const auto& fname : imgFilesPath) {
+    if (fname.generic_string().find(imgName) != std::string::npos) {
+      isInList = true;
+      break;
+    }
+  }
+  return isInList;
 }

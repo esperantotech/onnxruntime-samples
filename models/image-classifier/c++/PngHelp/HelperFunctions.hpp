@@ -52,5 +52,5 @@ auto loadImage(const std::filesystem::path& filename) -> RawImage;
 auto loadLabels(const std::string& filename) -> std::vector<std::string>;
 auto timestamp() -> std::string;
 auto directoryFiles(const std::filesystem::path& path, const char* pattern) -> std::vector<fs::path>;
-
+auto checkImgExists(std::string imgName, std::vector<fs::path> imgFilesPath) -> bool;
 #endif //_MY_HELP_

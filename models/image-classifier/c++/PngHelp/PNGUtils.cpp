@@ -131,7 +131,15 @@ auto decodePNGImage(const std::vector<char>& data) -> std::variant<std::string, 
   if (const bool isRGBA = (colorType == PNG_COLOR_TYPE_RGBA); !(isGray || isRGB || isRGBA)) {
     return std::string("invalid image: color type not supported.");
   }
-  const std::size_t bytesPerPixel = isGray ? 1 : isRGB ? 3 : 4;
+
+  std::size_t bytesPerPixel = isGray;
+  if (!isGray) {
+    if (isRGB) {
+      bytesPerPixel = 3;
+    } else {
+      bytesPerPixel = 4;
+    }
+  }
 
   png_read_update_info(png, pngInfo);
   const auto rowBytes = png_get_rowbytes(png, pngInfo);

@@ -27,13 +27,7 @@ public:
   explicit ExecuteOnExit(VoidFuncPtr func = nullptr) noexcept
     : cleanupFn_(func) {
   }
-  ~ExecuteOnExit() noexcept try {
-    if (cleanupFn_) {
-      cleanupFn_();
-    }
-  } catch (...) {
-    // TBD
-  }
+
   // Replace the cleanup function and returns the old one.
   auto reset(VoidFuncPtr func = nullptr) noexcept -> VoidFuncPtr {
     std::swap(cleanupFn_, func);

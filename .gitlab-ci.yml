@@ -108,7 +108,22 @@ build:sonarqube-check:
 
       if [ $API_TYPE == "C++" ]; then
         ./${CXX_BUILD_PATH}/mnist -artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory -verbose        
-        ./${CXX_BUILD_PATH}/resnet -artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory -batchSize 1 -verbose
+        #It gets the first image at imagenet folder at DownloadArtifactory
+        ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --batchSize 1 --verbose
+        #Use the image given by user to be inferenced.
+        ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --batchSize 1 --image 1_cat --verbose
+        #The batch is composed with the image given by user.
+        ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --batchSize 10 --image 2_dog --verbose
+        #The batch is composed with the images in the DownloadArtifactory folder catching in alphabetical order until fill all batch,
+        #in case there aren't enough images, It comes back to the begin of the images listed until batch is filled.
+        ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --batchSize 10 --verbose
+        if [ $DEVICE_TYPE == "silicon" ]; then
+          #Resnet Async execution. Batch size is always 1 for each inferences execution in async mode. It rolls over the three images. cat, dog and zebra.
+          #It launches 1000 async inferences.
+          ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --asyncMode --verbose 
+          #It launches as many inferences as are setting in '--inferences'
+          ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --totalInferences 100 --asyncMode --verbose
+        fi
       else
         # image-classifier
         python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory

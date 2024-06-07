@@ -93,22 +93,30 @@ class MNIST {
 
     // define names
     Ort::AllocatorWithDefaultOptions allocator;
-    inputName_.emplace(session_.GetInputNameAllocated(session_.GetInputCount() - 1, allocator));
-    outputName_.emplace(session_.GetOutputNameAllocated(session_.GetOutputCount() - 1, allocator));
+
+    numInputNodes_ = session_.GetInputCount();
+    numOutputNodes_ = session_.GetOutputCount();
+
+    for (size_t i = 0; i < numInputNodes_; i++) {
+      Ort::AllocatedStringPtr inputNodeName = session_.GetInputNameAllocated(i, allocator);
+      inputNodeNameAllocatedStrings.push_back(std::move(inputNodeName));
+      inputNodeNames_.push_back(inputNodeNameAllocatedStrings.back().get());
+    }
+    for (size_t i = 0; i < numOutputNodes_; i++) {
+      Ort::AllocatedStringPtr outputNodeName = session_.GetOutputNameAllocated(i, allocator);
+      outputNodeNameAllocatedStrings.push_back(std::move(outputNodeName));
+      outputNodeNames_.push_back(outputNodeNameAllocatedStrings.back().get());
+    }
 
     return 0;
   }
 
   int run() {
 
-    const char* inputNames[] = {inputName_->get()};
-    char* outputNames[] = {outputName_->get()};
-
-    Ort::RunOptions runOptions;
-
     try {
-      session_.Run(runOptions, inputNames, &inputOrtTensor_, 1, outputNames, &outputOrtTensor_, 1);
-    } catch (Ort::Exception &oe) {
+      session_.Run(runOptions_, inputNodeNames_.data(), &inputOrtTensor_, 1, outputNodeNames_.data(), &outputOrtTensor_,
+                   1);
+    } catch (Ort::Exception& oe) {
       std::cout << fmt::format("ONNX excetion caught: {0} . Code {1}\n", oe.what(), oe.GetOrtErrorCode());
       return -1;
     }
@@ -161,8 +169,14 @@ class MNIST {
   OrtEtGlowProviderOptions etOptions_;
   Ort::Value inputOrtTensor_{nullptr};
   Ort::Value outputOrtTensor_{nullptr};
-  std::optional<Ort::AllocatedStringPtr> inputName_;
-  std::optional<Ort::AllocatedStringPtr> outputName_;
+  Ort::RunOptions runOptions_;
+  size_t numInputNodes_;
+  size_t numOutputNodes_;
+  std::vector<Ort::AllocatedStringPtr> inputNodeNameAllocatedStrings;
+  std::vector<Ort::AllocatedStringPtr> outputNodeNameAllocatedStrings;
+  std::vector<const char*> inputNodeNames_;
+  std::vector<char*> outputNodeNames_;
+
   // define shape
   std::array<int64_t, 4> inputShape_{1, 1, width_, height_};
   std::array<int64_t, 2> outputShape_{1, 10};
@@ -212,6 +226,7 @@ int main(int argc, char *argv[]) {
 
   //check providers
   auto providers = Ort::GetAvailableProviders();
+  INFO("Available ORT providers: ");
   for (auto provider : providers) {
     INFO("" << provider);
   }

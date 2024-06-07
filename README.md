@@ -161,16 +161,16 @@ It might be interesting to firstly call `-h` to see what paramters each example 
 ./models/image-classifier/c++/build/mnist -help
 mnist: Usage: example-function [OPTION] ...
 
-  Flags from /home/rafa/WorkSpace/onnxruntime-samples/models/image-classifier/c++/mnist.cpp:
+  Flags from $HOME/onnxruntime-samples/models/image-classifier/c++/mnist.cpp:
     -artifact_folder (Absolute folder where the models and datasets are)
       type: string default: "../../../DownloadArtifactory"
     -h (help) type: bool default: false
     -verbose (Verbose output) type: bool default: false
 ```
 
-Example execution:
+Example executions:
 ```
-$ ./models/image-classifier/c++/build/mnist -artifact_folder /home/rafa/WorkSpace/onnxruntime-samples/DownloadArtifactory -verbose
+$ ./models/image-classifier/c++/build/mnist -artifact_folder $HOME/onnxruntime-samples/DownloadArtifactory -verbose
 artifacts folder placed on ./DownloadArtifactory/
 EtGlowExecutionProvider
 CPUExecutionProvider

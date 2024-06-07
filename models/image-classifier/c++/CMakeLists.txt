@@ -68,3 +68,4 @@ target_link_libraries(resnet
         gflags::gflags
         PngHelpLib::PngHelpLib
 )
+
