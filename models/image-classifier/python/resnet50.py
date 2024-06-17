@@ -35,6 +35,7 @@ def main(argv: Optional[Sequence[str]] = None):
     print('*** Reference CPU results ***')
     utils.test_with_images(imagespath, session_cpu)
     utils.test_with_protobuf(protobufpath, session_cpu)
+    print('*** ETSoC results ***')
     utils.test_with_images(imagespath, session_etglow)
 
 if __name__ == "__main__":
