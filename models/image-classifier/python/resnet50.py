@@ -30,13 +30,12 @@ def main(argv: Optional[Sequence[str]] = None):
     }
 
     session_cpu    = ort.InferenceSession(modelpath, sess_options, providers=['CPUExecutionProvider'])
-    # session_etglow = ort.InferenceSession(modelpath, sess_options, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
+    session_etglow = ort.InferenceSession(modelpath, sess_options, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
 
     print('*** Reference CPU results ***')
     utils.test_with_images(imagespath, session_cpu)
     utils.test_with_protobuf(protobufpath, session_cpu)
-    print('*** ETSoC run is disabled (See SW-20984) ***')
-    # utils.test_with_images(imagespath, session_etglow)
+    utils.test_with_images(imagespath, session_etglow)
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

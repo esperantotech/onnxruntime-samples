@@ -80,7 +80,7 @@ def main(argv: Optional[Sequence[str]] = None):
 
     # decode output into text
     answer_cpu = get_answer_bert(output_tensor_cpu, input_tensors_cpu, tokenizer)
-    # answer_etglow = get_answer_bert(output_tensor_etglow, input_tensors_etglow, tokenizer)
+    answer_etglow = get_answer_bert(output_tensor_etglow, input_tensors_etglow, tokenizer)
 
     if predictionpath.exists:
         with predictionpath.open('r') as file:
@@ -89,8 +89,7 @@ def main(argv: Optional[Sequence[str]] = None):
     print(f"Context:\n-----------------\n{prediction[0]['context']}")
     print(f"Dataset answer is: {prediction[0]['answer']}")
     print(f"CPU EP answer is: {answer_cpu}")
-    # print(f"ETGLOW EP answer is: {answer_etglow}")
-    print(f"ETGLOW EP run is disabled (See SW-20984)")
+    print(f"ETGLOW EP answer is: {answer_etglow}")
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

@@ -135,7 +135,7 @@ build:sonarqube-check:
       else
         # image-classifier
         python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory
-        #python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
+        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/mobilenet.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/vgg16.py --artifacts DownloadArtifactory
       fi
