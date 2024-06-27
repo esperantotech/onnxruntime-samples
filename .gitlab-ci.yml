@@ -113,8 +113,6 @@ build:sonarqube-check:
     CXX_BUILD_PATH: models/image-classifier/c++/build
     CMD_SETUP_EXTRA_DEPS: |
       # Download models
-      sudo apt-get update --fix-missing
-      sudo apt-get install -y awscli --no-install-recommends 
       if [ $API_TYPE == "C++" ]; then
         sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
       fi
@@ -156,7 +154,7 @@ build:sonarqube-check:
     CMD_SETUP_EXTRA_DEPS: |
       # Download models
       sudo apt-get update --fix-missing
-      sudo apt-get install -y libsm6 libxext6 awscli --no-install-recommends
+      sudo apt-get install -y libsm6 libxext6 --no-install-recommends
       if [ $API_TYPE == "C++" ]; then
         sudo apt-get install -y ffmpeg --no-install-recommends
       fi
