@@ -129,21 +129,21 @@ build:sonarqube-check:
         python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --totalInferences 5
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --totalInferences 2
+        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 5
+        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --total-inferences 2
         if [ $DEVICE_TYPE == "silicon" ]; then
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --mode async
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --totalInferences 2 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --totalInferences 5 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --totalInferences 2 --batch 5
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --totalInferences 10 --batch 3
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --totalInferences 2 --batch 5 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --totalInferences 10 --batch 3 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --total-inferences 2 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 5 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --total-inferences 2 --batch 5
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 10 --batch 3
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --total-inferences 2 --batch 5 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 10 --batch 3 --mode async
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --batch 100
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --totalInferences 1000 --batch 5
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 1000 --batch 5
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --batch 100 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --totalInferences 1000 --batch 5 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 1000 --batch 5 --mode async
         fi
         python3 models/image-classifier/python/mobilenet.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/vgg16.py --artifacts DownloadArtifactory

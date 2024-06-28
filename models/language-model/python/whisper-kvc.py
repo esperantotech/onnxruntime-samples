@@ -18,14 +18,17 @@ def extra_arguments(parser):
                         help = 'Audio to transcribe')
     parser.add_argument("-n", '--new-tokens', type = int, default = 20,
                         help = 'Number of new tokens to generate')
+    parser.add_argument('--enable_tracing', action = 'store_true', default = False,
+                        help = 'Enable onnxruntime profiling and neuralizer traces')
 
 
 # Define etglow api parameters
-def get_etglow_api_params():
+def get_etglow_api_params(args):
     api_params = [
         "device-type=silicon",
         "glow-threads=2",
         "runDir=myrundir",
+        "kernel-launch-timeout=20",
         "extra-etsoc-params='" + '|'.join([
             'debug-glow=0',
             'dev=' + " ".join([
@@ -35,8 +38,10 @@ def get_etglow_api_params():
             ]),
         ]) + "'"
     ]
-    #api_params += ["trace-neuralizer-nodes=true",
-    #               "trace-neuralizer-path=neuralizer.json"]
+    if args.enable_tracing:
+        api_params += ["trace-neuralizer-nodes=true",
+                    "trace-neuralizer-path=neuralizer.json"]
+        
     return ';'.join(api_params)
 
 
@@ -174,22 +179,14 @@ def main(argv: Optional[Sequence[str]] = None):
     encoder_model_path = artifacts_path / 'models/whisper-large-v2/encoder/model.onnx'
     decoder_model_path = artifacts_path / 'models/whisper-large-v2/decoder/model.onnx'
 
-    # Session options
-    session_options = onnxruntime.SessionOptions()
-    utils.set_verbose_output(session_options, args.verbose)
-     # Disable all the graph optimizations
-    session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_DISABLE_ALL
-    session_options.enable_profiling = False
-
-    ## ENCODE api params
-    api_params = get_etglow_api_params()
-    print("api_params: " + api_params)
+    # Encoder api params
+    api_params = get_etglow_api_params(args)
     onnx_symbols = get_onnx_symbols_encoder(int(100*num_seconds)) # timestamps is 100*<length of the audio clip>
     onnx_shape_params = get_onnx_shape_params(onnx_symbols)
-    print(onnx_symbols)
     provider_options = {"etglow_greedy": "true",
                         "etglow_onnx_shape_params": onnx_shape_params,
                         "etglow_api_params": api_params}
+    print(provider_options)
 
     # Fix encoder model dimensions
     encoder = onnx.load(encoder_model_path, load_external_data=False)
@@ -200,10 +197,6 @@ def main(argv: Optional[Sequence[str]] = None):
     with open(encoder_fixed_dims, "wb") as f:
         f.write(encoder.SerializeToString())
 
-    # Creates the ONNX Runtime session
-    enc_session_cpu = onnxruntime.InferenceSession(encoder_fixed_dims, sess_options=session_options, providers=['CPUExecutionProvider'])
-    enc_session_etglow = onnxruntime.InferenceSession(encoder_fixed_dims, sess_options=session_options, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
-
     # Load audio
     print(f"Spectrogram speech audio file {speech_path}... ", end="")
     audio = whisper.load_audio(speech_path)
@@ -212,16 +205,33 @@ def main(argv: Optional[Sequence[str]] = None):
     print("OK")
 
     print("Running encoder... ", end="")
+
+    # Session options
+    session_options = onnxruntime.SessionOptions()
+    utils.set_verbose_output(session_options, args.verbose)
+     # Disable all the graph optimizations
+    session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_DISABLE_ALL
+    session_options.enable_profiling = args.enable_tracing
+
+    # Encode
     encoder_input = {"mel": mel.numpy()}
     encoder_output_names = [tensor.name for tensor in encoder.graph.output]
+    # CPU encoding
+    session_options.profile_file_prefix = 'whisper_encode_cpu'
+    enc_session_cpu = onnxruntime.InferenceSession(encoder_fixed_dims, sess_options=session_options, providers=['CPUExecutionProvider'])
     cross_attn_tensors_cpu = enc_session_cpu.run(encoder_output_names, encoder_input)
-    cross_attn_tensors_etglow = enc_session_cpu.run(encoder_output_names, encoder_input)
+    enc_session_cpu.end_profiling()
+    # Etglow encoding
+    session_options.profile_file_prefix = 'whisper_encode_etglow'
+    enc_session_etglow = onnxruntime.InferenceSession(encoder_fixed_dims, sess_options=session_options, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
+    cross_attn_tensors_etglow = enc_session_etglow.run(encoder_output_names, encoder_input)
+    enc_session_etglow.end_profiling()
 
     print("OK")
 
     # DECODE API PARAMS
     max_context = 448
-    api_params = get_etglow_api_params()
+    api_params = get_etglow_api_params(args)
     print("api_params: " + api_params)
 
     onnx_symbols = get_onnx_symbols_decoder(max_context, int(100*num_seconds/2))

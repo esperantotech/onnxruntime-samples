@@ -7,9 +7,14 @@ import time
 import numpy as np
 import argparse
 import logging
+import sys
 from pathlib import Path
 from transformers import AutoTokenizer, AutoProcessor
 from onnxruntime.tools.onnx_model_utils import make_dim_param_fixed
+
+# Import utils.py
+sys.path.append(Path(__file__).resolve().parent.parent.parent.as_posix())
+from common import utils
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description = "Get the perplexity for a prompt and a model")
@@ -25,27 +30,29 @@ def parse_arguments():
                         help = 'Total context length for the run')
     parser.add_argument("-n", '--no-context', action="store_true", default=False, 
                         help = 'If used, the model does not have the context extension in its ONNX')
-
     parser.add_argument("-g", '--generate-tokens', type = int, default = 0,
                         help = 'Total sequence length for the run')
+    parser.add_argument('--enable_tracing', action = 'store_true', default = False,
+                        help = 'Enable onnxruntime profiling and neuralizer traces')
     args = parser.parse_args()
     return args
 
 # Define etglow api parameters
-def get_etglow_api_params():
+def get_etglow_api_params(enable_tracing):
+    dev_params = " ".join(['--gccCompileThreads=32','--logDisableCodeGenBits=-1', ])
+    extra_params = '|'.join(['debug-glow=0', f'dev={dev_params}'])
     api_params = [
         "device-type=silicon",
         "glow-threads=2",
         "runDir=myrundir",
-        "extra-etsoc-params='" + '|'.join([
-            'debug-glow=0',
-            'dev=' + " ".join([
-                '--gccCompileThreads=32',
-                '--logDisableCodeGenBits=-1',
-            ]),
-        ]) + "'"
+        f"extra-etsoc-params='{extra_params}'"
     ]
-    return ';'.join(api_params)
+    api_params = ';'.join(api_params)
+
+    if enable_tracing:
+        api_params = f'{utils.get_tracing_params()};{api_params}'
+
+    return api_params
 
 # Defines dictionaries of onnx symbols
 def get_onnx_symbols(ct, sl, kvc) -> dict[str, any]:
@@ -73,6 +80,17 @@ def get_onnx_shape_params(onnx_symbols):
     # Return generated string without the last comma character
     return onnx_shape_params[:-1]
 
+def get_provider_options(onnx_symbols, enable_tracing) -> dict:
+    onnx_shape_params = get_onnx_shape_params(onnx_symbols)
+    api_params = get_etglow_api_params(enable_tracing)
+    print(api_params)    
+
+    poptions = {"etglow_greedy": "true",
+                "etglow_onnx_shape_params": onnx_shape_params,
+                "etglow_api_params": api_params}
+    
+    return poptions
+
 def llm_kvc_inference(session : onnxruntime.InferenceSession, tokenizer : AutoTokenizer, input_tensors : dict,
                       prompt_tensor, num_tokens, context, sequence_len, window : int) -> tuple[str, float]:
     sum_perplexity = 0
@@ -91,6 +109,7 @@ def llm_kvc_inference(session : onnxruntime.InferenceSession, tokenizer : AutoTo
             break
 
         output = session.run(output_names, input_tensors)
+
         outs_dictionary = {name: content for (name, content) in zip (output_names, output)}
 
         for name in inputs_names:
@@ -109,21 +128,21 @@ def llm_kvc_inference(session : onnxruntime.InferenceSession, tokenizer : AutoTo
                     next_index += 1
                     
                     j = next_index - window
-                    new_token = outs_dictionary['logits'].argmax(-1).reshape(1, window)
+                    new_token = outs_dictionary['logits'].argmax(-1).reshape(1, window) # Inf server
                     total_input = np.concatenate((total_input, new_token[: , -1:]), axis = 1)
 
-                input_tensors['input_ids'] = total_input[:, j:next_index].reshape(1, window)
+                input_tensors['input_ids'] = total_input[:, j:next_index].reshape(1, window) # inf server
                 sum_perplexity+= -np.log(softmax(outs_dictionary['logits'][0, 0])[input_tensors['input_ids'][0]])
             elif name == 'attention_mask':
-                input_tensors['attention_mask'] = np.concatenate((np.zeros((1, sequence_len - next_index), dtype = 'int64'), np.ones((1, next_index), dtype = 'int64')), axis=1)
+                input_tensors['attention_mask'] = np.concatenate((np.zeros((1, sequence_len - next_index), dtype = 'int64'), np.ones((1, next_index), dtype = 'int64')), axis=1) # inf server
             else:
                 old_name = name.replace("past_key_values", "present")
                 input_tensors[name] = outs_dictionary[old_name][:, :, next_index - current_index:context - window + (next_index - current_index), :]
+        
 
     sum_perplexity /= (num_tokens - 1)
     answer = tokenizer.decode(total_input[0], skip_special_tokens=True, clean_up_tokenization_spaces=False)
     return (answer, sum_perplexity[0])
-
 
 def get_prompt_tensor(prompt, tokenizer):
     input_tensor = tokenizer(prompt, return_tensors="pt")
@@ -159,11 +178,11 @@ def preprocess_llm_input_tensors(input_ids_tensor : np.ndarray, inputs_names, wi
     return inputs_dict
 
 
-def print_llm_inference_results(label : str, comp_time : float, inf_time : float,  perplexity : float, answer : str,):
+def print_llm_inference_results(label : str, comp_time : float, inf_time : float,  perplexity, answer : str, num_tokens):
     print(f'{label}:')
-    print(f'    Compilation took {comp_time:.2f} seconds.')
-    print(f'    Inference took {inf_time:.2f} seconds.')
-    print(f'    Perplexity value: {perplexity:.2f}')
+    print(f'    Compilation took {comp_time:.2f}s')
+    print(f'    Inference took {inf_time:.2f}s ({(num_tokens / inf_time):.2f} tokens/s)')
+    print(f'    Perplexity value: {float(perplexity):.2f}')
     print(f'    Question and answer: {answer}')
 
 
@@ -171,6 +190,7 @@ def main():
     args = parse_arguments()
     logging.basicConfig(level = logging.INFO)
   
+    # Paths
     model_path = Path(args.model_path)
     tokenizer_path = Path(args.tokenizer)
     sequence_len = args.sequence_length
@@ -180,49 +200,40 @@ def main():
     if args.no_context:
         context_len = sequence_len
 
-    # check inputs
+    # Check inputs
     if not model_path.exists():
         raise FileNotFoundError(f"Error: model file {model_path} does not exist.")
 
     if not tokenizer_path.exists():
         raise FileNotFoundError(f"Error: tokenizer file {tokenizer_path} does not exist.")
     
-    # Check sequence length is long 
+    # Check sequence length is long enough
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
     prompt_tensor = get_prompt_tensor(prompt, tokenizer)
     prompt_size = len(prompt_tensor[0])
-    assert (prompt_size + num_tokens <= sequence_len), f"Sequence length is not long enough (should be at least: {prompt_size + num_tokens}"
+    assert(prompt_size + num_tokens <= sequence_len), f"Sequence length is not long enough (should be at least: {prompt_size + num_tokens}"
 
     # Exit if the model does not use KVC
     model = onnx.load(model_path)
-    assert len(model.graph.input) > 2, f"NonKVC models are not supported yet"
+    assert(len(model.graph.input) > 2), "Non Key-Value Cache models are not yet supported"
     kvc = True
 
-    # Disable all the graph optimizations
-    options = onnxruntime.SessionOptions()
-    options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_DISABLE_ALL
-    log_severity_warning = 2
-    options.log_severity_level = log_severity_warning # replace by utils call
-    # options.log_severity_level = log_severity_verbose
-
-    window = 1 # sequence 1
+    # Session options
+    session_options = onnxruntime.SessionOptions()
+    utils.set_verbose_output(session_options, False)
+    session_options.enable_profiling = args.enable_tracing
+    session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_DISABLE_ALL
+    # Provider options
     onnx_symbols = get_onnx_symbols(context_len, sequence_len, kvc)
-    onnx_shape_params = get_onnx_shape_params(onnx_symbols)
+    provider_options = get_provider_options(onnx_symbols, args.enable_tracing)
 
-    api_params = get_etglow_api_params()
-    print(f"api_params: {api_params}")
-    provider_options_dict = {"etglow_greedy": "true",
-                            "etglow_onnx_shape_params": onnx_shape_params,
-                            "etglow_api_params": api_params}
-
+    # Fix model dimensions
     fixed_model_path, n_heads, hidden = fix_model_dimensions(model_path, onnx_symbols)
 
-    # Create the ONNX Runtime session
+    window = 1
+    # Create cpu ORT session
     start = time.time()
-    session_etsoc = onnxruntime.InferenceSession(fixed_model_path, providers=['EtGlowExecutionProvider'], provider_options=[provider_options_dict])
-    etsoc_comp_time = time.time() - start
-
-    start = time.time()
+    session_options.profile_file_prefix = f'{model_path.stem}_cpu_window_{window}'
     session_cpu = onnxruntime.InferenceSession(fixed_model_path, providers=['CPUExecutionProvider'])
     comp_time_cpu = time.time() - start
 
@@ -230,24 +241,30 @@ def main():
     inputs_names = [input.name for input in session_cpu.get_inputs()]
     input_tensors = preprocess_llm_input_tensors(prompt_tensor, inputs_names, window, sequence_len, n_heads, hidden, context_len)
 
-    # Launch CPU inference
+    # Execute inference on CPU
     start = time.time()
     answer_cpu, perplexity_cpu = llm_kvc_inference(session_cpu, tokenizer, input_tensors, prompt_tensor, num_tokens, context_len, sequence_len, window)
+    session_cpu.end_profiling()
     inf_time_cpu = time.time() - start
 
-    # Process inputs (reset)
-    inputs_names = [input.name for input in session_cpu.get_inputs()]
+    # Create etglow ORT session
+    start = time.time()
+    session_options.profile_file_prefix = f'{model_path.stem}_etglow_window_{window}'
+    session_etglow = onnxruntime.InferenceSession(fixed_model_path, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
+    etsoc_comp_time = time.time() - start
+
+    # Process inputs
+    inputs_names = [input.name for input in session_etglow.get_inputs()]
     input_tensors = preprocess_llm_input_tensors(prompt_tensor, inputs_names, window, sequence_len, n_heads, hidden, context_len)
 
     # Launch ETSoC inference
     start = time.time()
-    answer_etsoc, perplexity_etsoc = llm_kvc_inference(session_etsoc, tokenizer, input_tensors, prompt_tensor, num_tokens, context_len, sequence_len, window)
+    answer_etglow, perplexity_etglow = llm_kvc_inference(session_etglow, tokenizer, input_tensors, prompt_tensor, num_tokens, context_len, sequence_len, window)
+    session_etglow.end_profiling()
     inf_time_etsoc = time.time() - start
 
-    print_llm_inference_results('CPU EP results', comp_time_cpu, inf_time_cpu, perplexity_cpu, answer_cpu)
-
-    print_llm_inference_results('ETGlow EP results', etsoc_comp_time, inf_time_etsoc, perplexity_etsoc, answer_etsoc)
-
+    print_llm_inference_results('CPU EP results', comp_time_cpu, inf_time_cpu, perplexity_cpu, answer_cpu, args.generate_tokens)
+    print_llm_inference_results('ETGlow EP results', etsoc_comp_time, inf_time_etsoc, perplexity_etglow, answer_etglow, args.generate_tokens)
 
 if __name__ == "__main__":
     main()

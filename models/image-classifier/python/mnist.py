@@ -92,7 +92,7 @@ def main(argv: Optional[Sequence[str]] = None):
 
     artifacts_path = Path(args.artifacts) 
 
-    modelname = 'mnist' # resnet50_onnx # resnet50_denso_onnx
+    modelname = 'mnist'
     modelpath = artifacts_path / f'models/{modelname}/model.onnx'
     imagespath = artifacts_path /'input_data/images/'
     protobufpath =  artifacts_path / 'input_data/protobuf/mnist/'

@@ -35,6 +35,16 @@ def get_tokenizer(model : str):
     
     return tokenizer
 
+def get_provider_options(args) -> dict:
+    poptions = {
+        "etglow_greedy": "true",
+        "etglow_onnx_shape_params": "batch_size=1;sequence_length=128;Squeezeoutput_start_logits_dim_1=128"}
+    
+    if args.enable_tracing:
+        poptions['etglow_api_params'] = utils.get_tracing_params()
+
+    return poptions
+
 def main(argv: Optional[Sequence[str]] = None):
     """Launch BERT onnx model on cpu and etglow and compare results."""
     parser = utils.get_arg_parser()
@@ -60,31 +70,33 @@ def main(argv: Optional[Sequence[str]] = None):
     tokenizer = get_tokenizer(args.bert_variant)
     modelpath = artifacts_path / f'models/{modelname}/model.onnx'
     predictionpath = tensorspath / 'prediction.json'
+    if not predictionpath.exists:
+       raise FileNotFoundError(f"Prediction file: {predictionpath} does not exist.")
 
+    # session and provider options
     sess_options = ort.SessionOptions()
     utils.set_verbose_output(sess_options, args.verbose)
+    sess_options.enable_profiling = args.enable_tracing
+    poptions = get_provider_options(args) 
 
-    # provider options
-    poptions = {
-        "etglow_greedy": "true",
-        "etglow_onnx_shape_params": "batch_size=1;sequence_length=128;Squeezeoutput_start_logits_dim_1=128"
-    }
+    print('Executing inferences...\n')
 
-    # init onnx rt sessions
+    # Run inferences on cpu
+    sess_options.profile_file_prefix = f'{modelname}_cpu'
     session_cpu    = ort.InferenceSession(modelpath, sess_options, providers=['CPUExecutionProvider'])
-    session_etglow = ort.InferenceSession(modelpath, sess_options, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
-
-    # launch tests and get input and output tensors
     input_tensors_cpu, output_tensor_cpu = utils.test_with_tensor(tensorspath, session_cpu)
-    input_tensors_etglow, output_tensor_etglow = utils.test_with_tensor(tensorspath, session_etglow)
-
-    # decode output into text
     answer_cpu = get_answer_bert(output_tensor_cpu, input_tensors_cpu, tokenizer)
-    answer_etglow = get_answer_bert(output_tensor_etglow, input_tensors_etglow, tokenizer)
+    session_cpu.end_profiling()
 
-    if predictionpath.exists:
-        with predictionpath.open('r') as file:
-            prediction = json.load(file)
+    # Run inferences on etglow
+    sess_options.profile_file_prefix = f'{modelname}_etglow'
+    session_etglow = ort.InferenceSession(modelpath, sess_options, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
+    input_tensors_etglow, output_tensor_etglow = utils.test_with_tensor(tensorspath, session_etglow)
+    answer_etglow = get_answer_bert(output_tensor_etglow, input_tensors_etglow, tokenizer)
+    session_etglow.end_profiling()
+
+    with predictionpath.open('r') as file:
+        prediction = json.load(file)
         
     print(f"Context:\n-----------------\n{prediction[0]['context']}")
     print(f"Dataset answer is: {prediction[0]['answer']}")

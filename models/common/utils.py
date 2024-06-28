@@ -15,39 +15,43 @@ from pathlib import Path
 
 import threading
 
-class MyData:
+class AsyncRunHandle:
     def __init__(self, id):
         self.__event = threading.Event()
         self.__id = id
-        self.__result = []
-        self.__err = ''        
-
-    def get_iteration(self):
-        return self.__ndx
+        self.__results = []
+        self.__err = ''
+        self.__event.clear()
+        self.__start = time.time()
         
     def get_id(self):
         return self.__id
 
-    def save_outputs(self, res, err):
-        self.__result = res
+    def get_results(self):
+        return self.__results
+    
+    def get_err(self):
+        return self.__err
+
+    def get_duration(self):
+        return self.__duration
+
+    def save_outputs(self, res, err) -> None:
+        self.__results = res
         self.__err = err
         self.__event.set()
+        self.__duration =  time.time() - self.__start
 
-    def get_result(self):
-        return self.__result
-
-    def clear(self):
-        self.__result.clear()
-
-    def wait(self, sec):
-        self.__event.wait(sec)
+    def wait(self):
+        self.__event.wait()
         
-def callback(out: np.ndarray, user_data: MyData, err : str) -> None :
-    print(f'run async CALLBACK iteration {user_data.get_id()}')
+def callback(out: np.ndarray, user_data: AsyncRunHandle, err : str) -> None :
     if err:
-        print("error in callback")
+        async_run_id = user_data.get_id()
+        raise RuntimeError(f"async_run (id:{async_run_id}) failed with the following error: {err}")
 
     user_data.save_outputs(out, err)
+
 
 def load_pb_data(protobufpath : Path) -> np.ndarray:
     """Load protobuf test dataset"""
@@ -77,46 +81,42 @@ def get_in_out_names(session):
 
     return (input_name, output_name)
 
-def check_and_compare_async(ref_outputs : np.ndarray, output_etsoc : list[MyData], batch = 1, num_of_inferences = 1):
+
+def check_and_compare(golden_outputs : np.ndarray, etsoc_outputs : np.ndarray, batch = 1, num_inferences = 1):
     """Compare the results with reference outputs up to 4 decimal places"""
-    for inf in range(num_of_inferences):
-        if (batch > 1):
+    try:
+        for inf in range(num_inferences):
             for i in range(batch):
-                for ref_o,o in zip(ref_outputs[inf][0][i], output_etsoc[inf].get_result()[0][i]):
-                    np.testing.assert_almost_equal(ref_o, o, 4)
-        else:
-            for ref_o, o in zip(ref_outputs[inf], output_etsoc[inf].get_result()):
-                np.testing.assert_almost_equal(ref_o, o, 4)    
-
-    print("Results are matched between CPU and ETProvider.")
-
-def check_and_compare(ref_outputs : np.ndarray, output_etsoc : np.ndarray, batch = 1, num_of_inferences = 1):
-    """Compare the results with reference outputs up to 4 decimal places"""
-    for inf in range(num_of_inferences):
-        if (batch > 1):
-            for i in range(batch):
-                for ref_o,o in zip(ref_outputs[inf][0][i], output_etsoc[inf][0][i]):
-                    np.testing.assert_almost_equal(ref_o, o, 4)
-        else:
-            for ref_o, o in zip(ref_outputs[inf], output_etsoc[inf]):
-                np.testing.assert_almost_equal(ref_o, o, 4)    
-
-    print("Results are matched between CPU and ETProvider.")
+                np.testing.assert_almost_equal(np.array(golden_outputs[inf][0][i]), np.array(etsoc_outputs[inf][0][i]), 4, err_msg='test', verbose=True)
+    except AssertionError:
+        return False
+    
+    return True
     
 
 def test_with_protobuf(protobufpath : Path, session : ort.InferenceSession):
     """Test pb inputs given by the owner of model"""
     num_datasets = 1
     input_name = session.get_inputs()[0].name
+    output_name = session.get_outputs()[0].name
 
+    results = []
+    golden_results = []
     for i in range(num_datasets):
         input_tensor = load_pb_data(protobufpath / f'test_data_set_{i}/input_0.pb')
-        output_tensor = session.run([], {input_name: input_tensor})[0]
-        golden_tensor = load_pb_data(protobufpath / f'test_data_set_{i}/output_0.pb')
-        check_and_compare(golden_tensor, output_tensor)
+        start = time.time()
+        batch_result = session.run([output_name], {input_name: input_tensor})
+        end = time.time()
+        results.append([batch_result, end - start])
+        golden_results.append([[load_pb_data(protobufpath / f'test_data_set_{i}/output_0.pb')], 0.0])
+
+    if not check_and_compare(golden_results, results):
+        raise RuntimeError('Error: results do not match the protobuf golden!')
+        
+    return results
 
 
-def load_labels(path):
+def load_json(path):
     with open(path) as f:
         data = json.load(f)
     return data
@@ -158,21 +158,28 @@ def load_image_files(images_path : Path) -> dict:
     return(images)
 
 
-def print_img_classification_results(labels, result, inference_time : float):
+def print_img_classification_results(device_string, labels_path, results):
     """Print image classification results including inference execution time and confidence percentage"""
+    labels = load_json(labels_path)
 
-    top_idx = str(np.argmax(result))
-    sorted_idx = np.flip(np.squeeze(np.argsort(result)))    
-   
-    print(f'Image classified as {labels[top_idx][1]}! (took {str(inference_time)}ms)')
-    print('Top 5 labels:')
-    for i in range(5):
-        percentage = f"{result[sorted_idx[i]] * 100:.2f}%"
-        print(f'    #{i+1} ({percentage}): {labels[str(sorted_idx[i])][1]}')
+    print(f'--- {device_string} results ---')
+    for inference_results in results:
+        batch_results = inference_results[0]
+        inference_time = inference_results[1]
+        print('-----------------------------------------')
+        for result in batch_results:
+            top_idx = str(np.argmax(result))
+            sorted_idx = np.flip(np.squeeze(np.argsort(result)))    
+
+            print(f'Image classified as {labels[top_idx][1]}! (took {inference_time * 1000:.2f}ms)')
+            print('Top 3 labels: ', end='')
+            for i in range(3):
+                confidence = f"{result[sorted_idx[i]] * 100:.2f}%"
+                print(f'{labels[str(sorted_idx[i])][1]}({confidence}) ', end = '')
+            print('\n')
 
 
 def test_with_tensor(tensorspath : Path, session : ort.InferenceSession):
-    # TODO: Support async runs and io bindings
     output_tensors_names = [tensor.name for tensor in session.get_outputs()]
 
     input_tensors = {}
@@ -187,65 +194,46 @@ def test_with_tensor(tensorspath : Path, session : ort.InferenceSession):
     return input_tensors, output_tensors
 
 
-def test_with_images(imagespath : Path, session : ort.InferenceSession, batch = 1, image_name = "", num_of_inferences = 1, mode = "sync"):
+def test_with_images(imagespath : Path, session : ort.InferenceSession, batch = 1, num_inferences = 1, mode = "sync"):
     """Test current session model against real inputs."""
     in_name, out_name = get_in_out_names(session)
 
-    #load real images
+    # Load image files
     images = load_image_files(imagespath / 'images')
-    labels = load_labels(os.path.join(imagespath / 'index_to_name.json'))
+    image_batch = []
+    images_list = list(images.keys())
+    for id in range(batch):
+        next_image = images[images_list[id%len(images_list)]]
+        image_batch.append(next_image['data'][0,:,:,:])
+    batch_data = np.array(image_batch)
 
-    if (image_name):
-        image_found = False
-        for k,v in images.items():
-            if image_name in os.path.basename(k):
-                image_found = True
-                break
-        if (image_found):
-            batch_data = images[k]['data'][0,:,:,:]
-            batch_data = np.repeat(batch_data[np.newaxis,...], batch, axis=0)
-        else:
-            sys.exit(f'{image_name} is not found in images files loaded.')
-    else:
-        batch_image = []
-        images2list = list(images.keys())
-        for i in range(batch):
-            batch_image.append(images[images2list[i%len(images2list)]]['data'][0,:,:,:])
-        batch_data = np.array(batch_image)
-
-    #list of results (num of inferences) where each item could be batched ({batch , 1000} np.array ")
-    reference_output = []
-    #list of MyData object which will contain the output result each element represent an inference that can be batched or not.
-    user_data_pool = []
-    
-    start = time.time()
-    for i in range(num_of_inferences):
-        if (mode == "sync"):
-            reference_output.append(session.run([out_name], {in_name: batch_data}))
-        else:
-            user_data = MyData(i)
-            user_data_pool.append(user_data)
-            session.run_async([out_name], {in_name: batch_data}, callback, user_data)
-    end = time.time()
-    inference_time = np.round((end - start) * 1000, 2)
-
-    for i in user_data_pool:
-        i.wait(10)
-
+    # Run inferences in sync or async mode
+    results = []
     if (mode == "sync"):
-        for inference in reference_output:
-            for i in range(batch):
-                result = postprocess(inference[0][i])
-                print_img_classification_results(labels, result, inference_time)
-                print('=============================================')
-        return reference_output
-    else:
-        for user_data in user_data_pool:
-            for i in range(batch):
-                result = postprocess(user_data.get_result()[0][i])
-                print_img_classification_results(labels, result, inference_time)
-                print('=============================================')
-        return user_data_pool
+        for id in range(num_inferences):
+            start = time.time()
+            batch_results = session.run([out_name], {in_name: batch_data})
+            end = time.time()
+            # Post-process
+            results.append([[postprocess(result) for result in batch_results], end - start])
+
+    elif (mode == "async"):
+        async_handles = []
+        for id in range(num_inferences):
+            handle = AsyncRunHandle(id)
+            async_handles.append(handle)
+            session.run_async([out_name], {in_name: batch_data}, callback, handle)
+
+        # Wait for all async inferences to complete
+        for handle in async_handles:
+            handle.wait()
+
+        # Post-process (softmax)
+        for handle in async_handles:
+            batch_results = handle.get_results()
+            results.append([[postprocess(result) for result in batch_results], handle.get_duration()])
+
+    return results
 
 def set_verbose_output(options, enabled):
     log_severity_verbose = 0
@@ -262,7 +250,7 @@ def set_verbose_output(options, enabled):
 def check_positive(value):
     try:
         value = int(value)
-        if value <= 0:
+        if value <= 0 or value > 10000:
             raise argparse.ArgumentTypeError(f'{value} is not a positive integer.')
     except ValueError:
         raise Exception(f'{value} is not an integer.')
@@ -270,7 +258,8 @@ def check_positive(value):
 
 def get_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
     parser = ArgumentParser()
-    parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory")
+    parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory", type=Path)
+    parser.add_argument("-t", "--enable-tracing", action='store_true')
     parser.add_argument("-v", "--verbose", default=False)
     return parser
 
@@ -282,17 +271,24 @@ def get_img_classifier_arg_parser(argv: Optional[Sequence[str]] = None) -> Argum
                         type = bool, default=False)
     parser.add_argument("-b", "--batch", 
                         help = "specify the number of batches", 
-                        type = check_positive, choices = range(1, 10000), default = 1)
+                        type = check_positive, default = 1)
     parser.add_argument("-i", "--image", 
                         help = "specify the image to do batch or/and inference", 
                         type = str, default="")
     parser.add_argument("-m", "--mode", choices = ["sync","async"], 
                         help = "specify the runmode",
                         type = str, default="sync")
-    parser.add_argument("-t", "--totalInferences", 
-                        help = "Defines the total number of inference to do",
+    parser.add_argument("-t", "--total-inferences", 
+                        help = "Defines the total number of inferences to do",
                         type = check_positive, default=1)
-    parser.add_argument("-d", "--deleteTensor",
+    parser.add_argument("-d", "--delete-tensor",
                         help = "remove tensor once run have been done. Only in async mode",
                         type = bool, default=False)
+    parser.add_argument("--enable-tracing", action='store_true')
+
     return parser
+
+
+def get_tracing_params(): 
+    return ';'.join(["trace-neuralizer-nodes=true", "trace-neuralizer-path=neuralizer-trace.json",
+                     "trace-runtime-path=runtime-trace.json"])
