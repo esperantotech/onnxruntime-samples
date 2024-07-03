@@ -12,6 +12,41 @@ from argparse import ArgumentParser, Namespace
 from typing import Sequence, Optional
 from pathlib import Path
 
+import threading
+
+class MyData:
+    def __init__(self, id):
+        self.__event = threading.Event()
+        self.__id = id
+        self.__result = []
+        self.__err = ''        
+
+    def get_iteration(self):
+        return self.__ndx
+        
+    def get_id(self):
+        return self.__id
+
+    def save_outputs(self, res, err):
+        self.__result = res
+        self.__err = err
+        self.__event.set()
+
+    def get_result(self):
+        return self.__result
+
+    def clear(self):
+        self.__result.clear()
+
+    def wait(self, sec):
+        self.__event.wait(sec)
+        
+def callback(out: np.ndarray, user_data: MyData, err : str) -> None :
+    print(f'run async CALLBACK iteration {user_data.get_id()}')
+    if err:
+        print("error in callback")
+
+    user_data.save_outputs(out, err)
 
 def load_pb_data(protobufpath : Path) -> np.ndarray:
     """Load protobuf test dataset"""
@@ -41,12 +76,32 @@ def get_in_out_names(session):
 
     return (input_name, output_name)
 
-
-def check_and_compare(ref_outputs : np.ndarray, output_etsoc : np.ndarray):
+def check_and_compare_async(ref_outputs : np.ndarray, output_etsoc : list[MyData], batch = 1, num_of_inferences = 1):
     """Compare the results with reference outputs up to 4 decimal places"""
-    for ref_o, o in zip(ref_outputs, output_etsoc):
-        np.testing.assert_almost_equal(ref_o, o, 4)    
+    for inf in range(num_of_inferences):
+        if (batch > 1):
+            for i in range(batch):
+                for ref_o,o in zip(ref_outputs[inf][0][i], output_etsoc[inf].get_result()[0][i]):
+                    np.testing.assert_almost_equal(ref_o, o, 4)
+        else:
+            for ref_o, o in zip(ref_outputs[inf], output_etsoc[inf].get_result()):
+                np.testing.assert_almost_equal(ref_o, o, 4)    
 
+    print("Results are matched between CPU and ETProvider.")
+
+def check_and_compare(ref_outputs : np.ndarray, output_etsoc : np.ndarray, batch = 1, num_of_inferences = 1):
+    """Compare the results with reference outputs up to 4 decimal places"""
+    for inf in range(num_of_inferences):
+        if (batch > 1):
+            for i in range(batch):
+                for ref_o,o in zip(ref_outputs[inf][0][i], output_etsoc[inf][0][i]):
+                    np.testing.assert_almost_equal(ref_o, o, 4)
+        else:
+            for ref_o, o in zip(ref_outputs[inf], output_etsoc[inf]):
+                np.testing.assert_almost_equal(ref_o, o, 4)    
+
+    print("Results are matched between CPU and ETProvider.")
+    
 
 def test_with_protobuf(protobufpath : Path, session : ort.InferenceSession):
     """Test pb inputs given by the owner of model"""
@@ -76,9 +131,10 @@ def preprocess(input_data):
     norm_img_data = np.zeros(img_data.shape).astype('float32')
     for i in range(img_data.shape[0]):
         norm_img_data[i,:,:] = (img_data[i,:,:]/255 - mean_vec[i]) / stddev_vec[i]
-        
+
     # Add batch dimension
     norm_img_data = norm_img_data.reshape(1, 3, 224, 224).astype('float32')
+            
     return norm_img_data
 
 
@@ -130,7 +186,7 @@ def test_with_tensor(tensorspath : Path, session : ort.InferenceSession):
     return input_tensors, output_tensors
 
 
-def test_with_images(imagespath : Path, session : ort.InferenceSession):
+def test_with_images(imagespath : Path, session : ort.InferenceSession, batch = 1, image_name = "", num_of_inferences = 1, mode = "sync"):
     """Test current session model against real inputs."""
     in_name, out_name = get_in_out_names(session)
 
@@ -138,15 +194,57 @@ def test_with_images(imagespath : Path, session : ort.InferenceSession):
     images = load_image_files(imagespath / 'images')
     labels = load_labels(os.path.join(imagespath / 'index_to_name.json'))
 
-    for k,v in images.items():
-        start = time.time()
-        reference_output = session.run([out_name], {in_name: images[k]['data']})
-        end = time.time()
-        result  = postprocess(reference_output)
-        inference_time = np.round((end - start) * 1000, 2)
-        
-        print_img_classification_results(labels, result, inference_time)
-        print('==========================================')
+    if (image_name):
+        image_found = False
+        for k,v in images.items():
+            if image_name in os.path.basename(k):
+                image_found = True
+                break
+        if (image_found):
+            batch_data = images[k]['data'][0,:,:,:]
+            batch_data = np.repeat(batch_data[np.newaxis,...], batch, axis=0)
+        else:
+            sys.exit(f'{image_name} is not found in images files loaded.')
+    else:
+        batch_image = []
+        images2list = list(images.keys())
+        for i in range(batch):
+            batch_image.append(images[images2list[i%len(images2list)]]['data'][0,:,:,:])
+        batch_data = np.array(batch_image)
+
+    #list of results (num of inferences) where each item could be batched ({batch , 1000} np.array ")
+    reference_output = []
+    #list of MyData object which will contain the output result each element represent an inference that can be batched or not.
+    user_data_pool = []
+    
+    start = time.time()
+    for i in range(num_of_inferences):
+        if (mode == "sync"):
+            reference_output.append(session.run([out_name], {in_name: batch_data}))
+        else:
+            user_data = MyData(i)
+            user_data_pool.append(user_data)
+            session.run_async([out_name], {in_name: batch_data}, callback, user_data)
+    end = time.time()
+    inference_time = np.round((end - start) * 1000, 2)
+
+    for i in user_data_pool:
+        i.wait(10)
+
+    if (mode == "sync"):
+        for inference in reference_output:
+            for i in range(batch):
+                result = postprocess(inference[0][i])
+                print_img_classification_results(labels, result, inference_time)
+                print('=============================================')
+        return reference_output
+    else:
+        for user_data in user_data_pool:
+            for i in range(batch):
+                result = postprocess(user_data.get_result()[0][i])
+                print_img_classification_results(labels, result, inference_time)
+                print('=============================================')
+        return user_data_pool
 
 def set_verbose_output(options, enabled):
     log_severity_verbose = 0
@@ -160,9 +258,40 @@ def set_verbose_output(options, enabled):
         ort.set_default_logger_severity(log_severity_verbose)
         options.log_severity_level = log_severity_warning
 
+def check_positive(value):
+    try:
+        value = int(value)
+        if value <= 0:
+            raise argparse.ArgumentTypeError(f'{value} is not a positive integer.')
+    except ValueError:
+        raise Exception(f'{value} is not an integer.')
+    return value
 
 def get_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory")
     parser.add_argument("-v", "--verbose", default=False)
+    return parser
+
+def get_img_classifier_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
+    parser = ArgumentParser()
+    parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory")
+    parser.add_argument("-v", "--verbose",
+                        help = "It shows help info messages",
+                        type = bool, default=False)
+    parser.add_argument("-b", "--batch", 
+                        help = "specify the number of batches", 
+                        type = check_positive, choices = range(1, 10000), default = 1)
+    parser.add_argument("-i", "--image", 
+                        help = "specify the image to do batch or/and inference", 
+                        type = str, default="")
+    parser.add_argument("-m", "--mode", choices = ["sync","async"], 
+                        help = "specify the runmode",
+                        type = str, default="sync")
+    parser.add_argument("-t", "--totalInferences", 
+                        help = "Defines the total number of inference to do",
+                        type = check_positive, default=1)
+    parser.add_argument("-d", "--deleteTensor",
+                        help = "remove tensor once run have been done. Only in async mode",
+                        type = bool, default=False)
     return parser
