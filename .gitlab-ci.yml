@@ -73,7 +73,7 @@ build:sonarqube-check:
     SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
     SONAR_BUILD_WRAPPER_URL: "https://sc-sonarq01.esperanto.ai/static/cpp"
     SONAR_SCANNER_URL: "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli"
-    SONAR_SCANNER_VERSION: 6.1.0.4477
+    SONAR_SCANNER_VERSION: 5.0.1.3006
     SONAR_SCANNER_ARCHIVE_NAME: "sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip"
     SONAR_SCANNER_UNZIPED_NAME: "sonar-scanner-${SONAR_SCANNER_VERSION}-linux"
     SONAR_BUILD_WRAPPER: "build-wrapper-linux-x86"
