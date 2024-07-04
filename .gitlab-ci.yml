@@ -69,7 +69,7 @@ build:sonarqube-check:
       allow_failure: true
   script:
     - cmake -S models/image-classifier/c++ -B .ci/sonarqube/build -DCMAKE_TOOLCHAIN_FILE=${ET_SDK_HOME}/.builds/host/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja
-    - cp ${CI_PROJECT_DIR}/build/Debug/compile_commands.json .
+    - cp ${CI_PROJECT_DIR}/.ci/sonarqube/build/compile_commands.json .
     - sonar-scanner -Dsonar.cfamily.threads=${KUBERNETES_CPU_REQUEST}
     
 ###############################################################################
