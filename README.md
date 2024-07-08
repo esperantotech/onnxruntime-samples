@@ -150,11 +150,8 @@ You can also specify where you have your download dataset otherwise It is assumi
 ## Execute model in C++ API.
 Launch the execution, choose the model with the following paremeters:
 ```
-./<modelname>  -a <path_to_yout_downloaded_artifactory> -mf <path model_json_description_filename.json>
+./<modelname>  --artifact_folder <path_to_yout_downloaded_artifactory> 
 ```
-
-The <model_json_description_filename.json> contains the features of how the model wants the image inference input, so it describes
-the name, class of model, format, model_file_name, layout, number of channels, etc..... (more detailed has to be provided here.)
 
 It might be interesting to firstly call `-h` to see what paramters each example accepts:
 ```
@@ -170,7 +167,7 @@ mnist: Usage: example-function [OPTION] ...
 
 Example executions:
 ```
-$ ./models/image-classifier/c++/build/mnist -artifact_folder $HOME/onnxruntime-samples/DownloadArtifactory -verbose
+$ ./models/image-classifier/c++/build/mnist --artifact_folder $HOME/onnxruntime-samples/DownloadArtifactory -verbose
 artifacts folder placed on ./DownloadArtifactory/
 EtGlowExecutionProvider
 CPUExecutionProvider

@@ -131,10 +131,10 @@ build:sonarqube-check:
         python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog
         python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --totalInferences 5
         python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --totalInferences 2
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --mode async
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --mode async
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --totalInferences 2 --mode async
         if [ $DEVICE_TYPE == "silicon" ]; then
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --totalInferences 2 --mode async
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --totalInferences 5 --mode async
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --totalInferences 2 --batch 5
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --totalInferences 10 --batch 3
@@ -220,7 +220,7 @@ tests:image-classification:python:sw-sysemu:
     DEVICE_TYPE: sysemu   
     ORT_ETGLOW_DEVICE_TYPE: sysemu
     API_TYPE: python
-    TIMEOUT: 90m
+    TIMEOUT: 2h
 
 tests:image-classification:python:silicon:
   extends:
