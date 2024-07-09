@@ -6,6 +6,7 @@ import json
 import time
 import numpy as np
 import onnx
+import sys
 from onnx import numpy_helper
 import onnxruntime as ort
 from argparse import ArgumentParser, Namespace

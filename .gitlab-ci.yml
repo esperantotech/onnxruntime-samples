@@ -147,6 +147,7 @@ build:sonarqube-check:
         fi
         python3 models/image-classifier/python/mobilenet.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/vgg16.py --artifacts DownloadArtifactory
+        python3 models/image-classifier/python/vgg19.py --artifacts DownloadArtifactory
       fi
 
 .tests:language-model:
