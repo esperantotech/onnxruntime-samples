@@ -338,5 +338,18 @@ data:
           - src: llava/mmp/*
             dst: mmp/
 
+    whisper-large-v2:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/whisper-large-v2/2
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/whisper-large-v2/2.tar.gz'
+        version: 2
+        files:
+          - src: decoder/*
+            dst: decoder/
+          - src: encoder/*
+            dst: encoder/
+
 metadata:
   schema: '@YAML_SCHEMAS_DIR@/artifacts-schema.yaml'

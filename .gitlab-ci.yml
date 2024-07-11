@@ -166,10 +166,7 @@ build:sonarqube-check:
     CMD_SETUP_EXTRA_DEPS: |
       # Download models
       sudo apt-get update --fix-missing
-      sudo apt-get install -y libsm6 libxext6 --no-install-recommends
-      if [ $API_TYPE == "C++" ]; then
-        sudo apt-get install -y ffmpeg --no-install-recommends
-      fi
+      sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
 
       python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
       artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
@@ -191,7 +188,6 @@ build:sonarqube-check:
       if [ $API_TYPE == "python" ]; then
         # bert
         python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory
-        
         python3 models/language-model/python/bert.py -b albert -a DownloadArtifactory
         python3 models/language-model/python/bert.py -b bert-large -a DownloadArtifactory
         python3 models/language-model/python/bert.py -b distilbert -a DownloadArtifactory
@@ -208,6 +204,9 @@ build:sonarqube-check:
 
         # llava
         python3 models/language-model/python/llava.py -a DownloadArtifactory -i artifacts/doge.jpg
+
+        # whisper
+        python3 models/language-model/python/whisper-kvc.py -a DownloadArtifactory -i artifacts/1984.m4a
 
       fi
 
