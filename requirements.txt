@@ -8,3 +8,5 @@ scipy
 awscli
 sentencepiece
 openai-whisper==20231117
+diffusers 
+accelerate

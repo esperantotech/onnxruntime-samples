@@ -210,6 +210,44 @@ build:sonarqube-check:
 
       fi
 
+.tests:text-to-image:
+  extends:
+    - .pod_large
+    - .template_job
+  stage: test
+  rules:
+    - *development_job_rule
+  variables:
+    TEMP_DIR: temp
+    TIMEOUT: 120m
+    GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
+    CXX_SOURCE_PATH: models/text-to-image/c++
+    CXX_BUILD_PATH: models/text-to-image/c++/build
+    CMD_SETUP_EXTRA_DEPS: |
+      # Download models
+      if [ $API_TYPE == "C++" ]; then
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
+      fi
+      python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
+      artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
+
+    CMD_BUILD: | 
+      if [ $API_TYPE == "C++" ]; then
+        cmake -S ${CXX_SOURCE_PATH} -B ${CXX_BUILD_PATH} -DCMAKE_TOOLCHAIN_FILE="${ET_SDK_HOME}/.builds/host/conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -G Ninja
+        cmake --build ${CXX_BUILD_PATH}
+      fi
+
+    CMD_SCRIPT: |
+      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
+
+      if [ $API_TYPE == "python" ]; then
+        if [ $DEVICE_TYPE == "silicon" ]; then
+          # Openjourney
+          python3 models/text-to-image/python/openjourney.py --artifacts DownloadArtifactory -s -p "foggy lake under waterfall with full moon" -d fp16
+          python3 models/text-to-image/python/openjourney.py --artifacts DownloadArtifactory -s -p "foggy lake under waterfall with full moon"
+        fi
+      fi
 
 tests:image-classification:python:sw-sysemu:
   extends:
@@ -265,6 +303,21 @@ tests:image-classification:c++:silicon:
 tests:language-model:python:silicon:
   extends:
     - .tests:language-model
+  image:
+    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
+    entrypoint: [""]
+  variables:
+    DEVICE_TYPE: silicon
+    ORT_ETGLOW_DEVICE_TYPE: silicon
+    API_TYPE: python
+  tags:
+    - silicon
+    - 1-card-silicon
+    - mv-gb-swci01
+
+tests:text-to-image:python:silicon:
+  extends:
+    - .tests:text-to-image
   image:
     name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
     entrypoint: [""]

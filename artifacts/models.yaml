@@ -351,5 +351,57 @@ data:
           - src: encoder/*
             dst: encoder/
 
+    openjourney_onnx:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/openjourney_onnx/5
+        server: artifactory
+        path: sw-ci-inputs/models/openjourney_onnx        
+        version: 5
+        files:
+          - src: scheduler_scale/*
+            dst: scheduler_scale/
+          - src: scheduler_step/*
+            dst: scheduler_step/
+          - src: text_encoder/*
+            dst: text_encoder/
+          - src: unet/*
+            dst: unet/
+          - src: vae_decoder/*
+            dst: vae_decoder/
+
+    openjourney_onnx_fp16_aws:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/openjourney-fp16/3
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/openjourney-fp16/3.tar.gz'
+        version: 1
+        files:
+          - src: text_encoder/*
+            dst: text_encoder/
+          - src: unet/*
+            dst: unet/
+          - src: vae_decoder/*
+            dst: vae_decoder/
+          - src: vae_encoder/*
+            dst: vae_encoder/
+
+    openjourney_onnx_fp32_aws:
+      servers:
+      - rel_local_dir: sw-ci-inputs/models/openjourney/2
+        server: aws_s3
+        wget_options: '-O - | tar xzf -'
+        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/openjourney/2.tar.gz'
+        version: 1
+        files:
+          - src: text_encoder/*
+            dst: text_encoder/
+          - src: unet/*
+            dst: unet/
+          - src: vae_decoder/*
+            dst: vae_decoder/
+          - src: vae_encoder/*
+            dst: vae_encoder/
+
 metadata:
   schema: '@YAML_SCHEMAS_DIR@/artifacts-schema.yaml'
