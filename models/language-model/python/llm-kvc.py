@@ -222,7 +222,7 @@ def main():
     session_options = onnxruntime.SessionOptions()
     utils.set_verbose_output(session_options, False)
     session_options.enable_profiling = args.enable_tracing
-    session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_DISABLE_ALL
+    session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_BASIC
     # Provider options
     onnx_symbols = get_onnx_symbols(context_len, sequence_len, kvc)
     provider_options = get_provider_options(onnx_symbols, args.enable_tracing)
@@ -234,7 +234,7 @@ def main():
     # Create cpu ORT session
     start = time.time()
     session_options.profile_file_prefix = f'{model_path.stem}_cpu_window_{window}'
-    session_cpu = onnxruntime.InferenceSession(fixed_model_path, providers=['CPUExecutionProvider'])
+    session_cpu = onnxruntime.InferenceSession(fixed_model_path,  sess_options=session_options, providers=['CPUExecutionProvider'])
     comp_time_cpu = time.time() - start
 
     # Process inputs
@@ -247,11 +247,14 @@ def main():
     session_cpu.end_profiling()
     inf_time_cpu = time.time() - start
 
+    print_llm_inference_results('CPU EP results', comp_time_cpu, inf_time_cpu, perplexity_cpu, answer_cpu, args.generate_tokens)
+
+
     # Create etglow ORT session
     start = time.time()
     session_options.profile_file_prefix = f'{model_path.stem}_etglow_window_{window}'
-    session_etglow = onnxruntime.InferenceSession(fixed_model_path, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
-    etsoc_comp_time = time.time() - start
+    session_etglow = onnxruntime.InferenceSession(fixed_model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
+    etsoc_comp_time = time.time() - start 
 
     # Process inputs
     inputs_names = [input.name for input in session_etglow.get_inputs()]
@@ -263,7 +266,6 @@ def main():
     session_etglow.end_profiling()
     inf_time_etsoc = time.time() - start
 
-    print_llm_inference_results('CPU EP results', comp_time_cpu, inf_time_cpu, perplexity_cpu, answer_cpu, args.generate_tokens)
     print_llm_inference_results('ETGlow EP results', etsoc_comp_time, inf_time_etsoc, perplexity_etglow, answer_etglow, args.generate_tokens)
 
 if __name__ == "__main__":

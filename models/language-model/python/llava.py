@@ -14,6 +14,21 @@ import time
 sys.path.append(Path(__file__).resolve().parent.parent.parent.as_posix())
 from common import utils
 
+def get_provider_options(args):
+    api_params = get_api_params()
+    
+    if args.enable_tracing:
+        api_params += "trace-neuralizer-nodes=true;trace-neuralizer-path=neuralizer.json"
+
+    onnx_shape_params = ';'.join([f"{k}={v}" for k, v in onnx_symbols.items()])
+
+    provider_options = {
+            "etglow_greedy": "true", # Forces all ONNX nodes through ETGLOW EP regardless of detected Capabilities
+            "etglow_onnx_shape_params": onnx_shape_params,
+            "etglow_api_params": api_params
+    }
+    return provider_options
+
 def extra_arguments(parser):
     parser.add_argument("--device-trace-nodes", action="store_true",
                         help = 'Adds device trace nodes')
@@ -23,6 +38,8 @@ def extra_arguments(parser):
                         help = 'Query on the given image')
     parser.add_argument("-n", '--new-tokens', type = int, default = 10,
                         help = 'Number of new tokes to generate')
+    parser.add_argument('--enable_tracing', action = 'store_true', default = False,
+                    help = 'Enable onnxruntime profiling and neuralizer traces')
 
 def _merge_input_ids_with_image_features(image_features, inputs_embeds, input_ids, attention_mask, labels):
     pad_token_id = -1
@@ -117,11 +134,13 @@ def get_api_params():
     api_params = ';'.join(["glow-threads=2", "runDir=myrundir", f"extra-etsoc-params='{extra_params}'"])
     return api_params
 
-def run_embeds(embeds_model : Path, tokenized_prompt, execution_provider, times, poptions):
+def run_embeds(embeds_model : Path, tokenized_prompt, execution_provider, times, session_options, poptions):
+    session_options.profile_file_prefix = f'embeds_{execution_provider}'
+
     print(f"Running Embeddings in {execution_provider}")
     input_ids = tokenized_prompt["input_ids"]
     start_time = time.time()
-    session = onnxruntime.InferenceSession(embeds_model, providers=[execution_provider], provider_options=[poptions])
+    session = onnxruntime.InferenceSession(embeds_model, sess_option=session_options, providers=[execution_provider], provider_options=[poptions])
     exe_time = time.time()
     outputs = session.run(None, {"input_ids": input_ids})
     end_time = time.time()
@@ -130,11 +149,13 @@ def run_embeds(embeds_model : Path, tokenized_prompt, execution_provider, times,
 
     return outputs, session
 
-def run_clip(clip_model : Path, image : Image, processor, execution_provider, times, poptions):
+def run_clip(clip_model : Path, image : Image,  execution_provider, times, session_options, poptions):
+    session_options.profile_file_prefix = f'clip_{execution_provider}'
     print(f"Running CLIP in {execution_provider}")
+    processor = AutoProcessor.from_pretrained('llava-hf/llava-1.5-7b-hf', torch_dtype = torch.float16)
     pixel_values = processor.image_processor(image, return_tensors = 'np')["pixel_values"].astype(np.float16)
     start_time = time.time()
-    session_clip = onnxruntime.InferenceSession(clip_model, providers = [execution_provider], provider_options=[poptions])
+    session_clip = onnxruntime.InferenceSession(clip_model, sess_option=session_options, providers = [execution_provider], provider_options=[poptions])
     exe_time = time.time()
     outputs_clip = session_clip.run(None, {"pixel_values": pixel_values})
     end_time = time.time()
@@ -143,10 +164,11 @@ def run_clip(clip_model : Path, image : Image, processor, execution_provider, ti
 
     return outputs_clip
 
-def run_mmp(proj_model : Path, outputs_clip, execution_provider, times, poptions):
+def run_mmp(proj_model : Path, outputs_clip, execution_provider, times, session_options, poptions):
+    session_options.profile_file_prefix = f'mmp_{execution_provider}'
     print(f"Running MultiModal Projection in {execution_provider}")
     start_time = time.time()
-    session_proj = onnxruntime.InferenceSession(proj_model, providers = [execution_provider], provider_options=[poptions])
+    session_proj = onnxruntime.InferenceSession(proj_model,  sess_option=session_options, providers = [execution_provider], provider_options=[poptions])
     exe_time = time.time()
     outputs_proj = session_proj.run(None, {'image_features': outputs_clip[0][:, 1:]})
     end_time = time.time()
@@ -173,19 +195,8 @@ def run_llava(args, execution_provider):
         "image_sequence": 577,
     }
 
-    onnx_shape_params = ';'.join([f"{k}={v}" for k, v in onnx_symbols.items()])
-
-    os.environ["GLOG_minloglevel"] = "2"
-    os.environ["GLOG_logtostderr"] = "2"
-
-    api_params = get_api_params()
-
     if execution_provider == 'EtGlowExecutionProvider':
-        provider_options = {
-            "etglow_greedy": "true", # Forces all ONNX nodes through ETGLOW EP regardless of detected Capabilities
-            "etglow_onnx_shape_params": onnx_shape_params,
-            "etglow_api_params": api_params
-        }
+        provider_options = get_provider_options(args)
     else:
         provider_options = {}
     
@@ -193,16 +204,16 @@ def run_llava(args, execution_provider):
 
     sess_options = onnxruntime.SessionOptions()
     utils.set_verbose_output(sess_options, args.verbose)
+    sess_options.enable_profiling = args.enable_tracing
 
     # Tokenize input prompt
     tokenizer = AutoTokenizer.from_pretrained('llava-hf/llava-1.5-7b-hf')
     prompt = 'USER: <image>\\n Here is a collaged image. Give a description for every scene.\\nASSISTANT:'
     tokenized_prompt = tokenizer(prompt, return_tensors = 'np', max_length = onnx_symbols["sequence"], truncation=True, padding="max_length")
-    outputs_embeddings, session_embeddings = run_embeds(onnx_model_path / "embeds/model.onnx", tokenized_prompt, execution_provider, times, provider_options)
+    outputs_embeddings, session_embeddings = run_embeds(onnx_model_path / "embeds/model.onnx", tokenized_prompt, execution_provider, times, sess_options, provider_options)
 
     # Clip image
-    processor = AutoProcessor.from_pretrained('llava-hf/llava-1.5-7b-hf', torch_dtype = torch.float16)
-    outputs_clip = run_clip(onnx_model_path / "clip/model.onnx", image, processor, execution_provider, times, provider_options)
+    outputs_clip = run_clip(onnx_model_path / "clip/model.onnx", image, execution_provider, times, sess_options, provider_options)
 
     # Update options: remove a token from image-sequence
     if execution_provider == 'EtGlowExecutionProvider':
@@ -212,7 +223,7 @@ def run_llava(args, execution_provider):
         # print(provider_options)
 
     # Multimodal projection
-    outputs_proj = run_mmp(onnx_model_path / "mmp/model.onnx", outputs_clip, execution_provider, times, provider_options)
+    outputs_proj = run_mmp(onnx_model_path / "mmp/model.onnx", outputs_clip, execution_provider, times, sess_options, provider_options)
 
     # Combine prompt with image features
     inputs_embeds, attention_mask, labels, position_ids = _merge_input_ids_with_image_features(outputs_proj[0], outputs_embeddings[0], tokenized_prompt["input_ids"], tokenized_prompt["attention_mask"], labels = tokenized_prompt["input_ids"])
@@ -224,9 +235,8 @@ def run_llava(args, execution_provider):
         provider_options["etglow_onnx_shape_params"] = onnx_shape_params
         # print(provider_options)
 
-    llama_path = onnx_model_path / "llama/model.onnx"
     start_time = time.time()
-    session_llama = onnxruntime.InferenceSession(llama_path, sess_options, providers = [execution_provider], provider_options=[provider_options])
+    session_llama = onnxruntime.InferenceSession(onnx_model_path / "llama/model.onnx", sess_options, providers=[execution_provider], provider_options=[provider_options])
     exe_time = time.time()
     generated_ids = run_llama(session_llama, inputs_embeds, attention_mask, session_embeddings, onnx_symbols, args.new_tokens)
     end_time = time.time()
@@ -248,6 +258,9 @@ def main():
     args = parser.parse_args(sys.argv[1:])
     answer_cpu, times_cpu = run_llava(args, 'CPUExecutionProvider')
     answer_etsoc, times_etsoc = run_llava(args, 'EtGlowExecutionProvider')
+
+    os.environ["GLOG_minloglevel"] = "2"
+    os.environ["GLOG_logtostderr"] = "2"
 
     print_llava_results('CPUExecutionProvider', answer_cpu, times_cpu)
     print_llava_results('EtGlowExecutionProvider', answer_etsoc, times_etsoc)
