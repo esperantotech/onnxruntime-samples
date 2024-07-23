@@ -33,4 +33,7 @@ def get_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
     parser.add_argument("-d", "--datatype", choices = ["fp16", "fp32"],
                         help = "specify the model data type",
                         type = str, default = "fp32")
+    parser.add_argument("-r", "--randomseed",
+                        help = "seed to use for random generation",
+                        type = int, default = 0)
     return parser

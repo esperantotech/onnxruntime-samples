@@ -94,8 +94,12 @@ build:sonarqube-check:
       if [ $API_TYPE == "C++" ]; then
         sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
       fi
-      python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
+      python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple      
+      python3 -m pip install opencv-python-headless~=4.10.0.84
       artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
+
+      # Show current python packages installed
+      pip freeze
 
     CMD_BUILD: | 
       if [ $API_TYPE == "C++" ]; then
@@ -169,6 +173,7 @@ build:sonarqube-check:
       sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
 
       python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
+      python3 -m pip install opencv-python-headless~=4.10.0.84
       artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
 
       # Generate squad datasets
@@ -230,7 +235,11 @@ build:sonarqube-check:
         sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
       fi
       python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
+      python3 -m pip install opencv-python-headless~=4.10.0.84
       artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
+
+      # Show current python packages installed
+      pip freeze
 
     CMD_BUILD: | 
       if [ $API_TYPE == "C++" ]; then
@@ -243,9 +252,16 @@ build:sonarqube-check:
 
       if [ $API_TYPE == "python" ]; then
         if [ $DEVICE_TYPE == "silicon" ]; then
+          # OpenJourney create golden image with cpu
+          python3 models/text-to-image/python/openjourney.py --artifacts DownloadArtifactory -p "foggy lake under waterfall with full moon"
+
           # Openjourney
           python3 models/text-to-image/python/openjourney.py --artifacts DownloadArtifactory -s -p "foggy lake under waterfall with full moon" -d fp16
+          python3 models/text-to-image/python/testimages.py -i "foggylakeunderwaterfallwithfullmoon" -p fp16
+
           python3 models/text-to-image/python/openjourney.py --artifacts DownloadArtifactory -s -p "foggy lake under waterfall with full moon"
+          python3 models/text-to-image/python/testimages.py -i "foggylakeunderwaterfallwithfullmoon" -p fp32
+
         fi
       fi
 

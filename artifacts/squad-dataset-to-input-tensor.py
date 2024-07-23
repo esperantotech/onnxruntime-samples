@@ -92,7 +92,7 @@ def main():
         with open(input_file, 'r') as file:
             dataset = json.load(file)
     except FileNotFoundError:
-        print("Cannot find the SQuad Dataset")
+        print(f'Cannot find the SQuad Dataset. Try to open {input_file}')
         return 1
 
     # Counter

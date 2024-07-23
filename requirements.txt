@@ -1,5 +1,4 @@
 artifacts_mgr_client
-opencv-python-headless
 onnx
 pytest-xdist
 pyasn1
@@ -10,3 +9,5 @@ sentencepiece
 openai-whisper==20231117
 diffusers 
 accelerate
+image-similarity-measures==0.3.6
+pyfftw
