@@ -104,8 +104,8 @@ def decoder_loop(decoder_session, decoder_output_names, cross_attn_tensors, num_
     self_attn_past_k = []
     self_attn_past_v = []
     for i in range(32):
-        self_attn_past_k.append(np.zeros((1, 447, 1280), dtype=np.float32))
-        self_attn_past_v.append(np.zeros((1, 447, 1280), dtype=np.float32))
+        self_attn_past_k.append(np.zeros((1, 20, 447, 64), dtype=np.float32))
+        self_attn_past_v.append(np.zeros((1, 20, 447, 64), dtype=np.float32))
 
     # Cross attention
     cross_attn_k = cross_attn_tensors[0::2]
@@ -133,8 +133,8 @@ def decoder_loop(decoder_session, decoder_output_names, cross_attn_tensors, num_
         self_attn_k = cache_tensors[0::2]
         self_attn_v = cache_tensors[1::2]
         for i in range(32):
-            self_attn_past_k[i] = self_attn_k[i][:,1:,:]
-            self_attn_past_v[i] = self_attn_v[i][:,1:,:]
+            self_attn_past_k[i] = self_attn_k[i][:,:,1:,:]
+            self_attn_past_v[i] = self_attn_v[i][:,:,1:,:]
 
         if (j == 0):
             # set language token
@@ -161,8 +161,8 @@ def decoder_loop(decoder_session, decoder_output_names, cross_attn_tensors, num_
         self_attn_k = cache_tensors[0::2]
         self_attn_v = cache_tensors[1::2]
         for i in range(32):
-            self_attn_past_k[i] = self_attn_k[i][:,1:,:]
-            self_attn_past_v[i] = self_attn_v[i][:,1:,:]
+            self_attn_past_k[i] = self_attn_k[i][:,:,1:,:]
+            self_attn_past_v[i] = self_attn_v[i][:,:,1:,:]
 
     return tokenizer.decode(transcribed_tokens)
 
