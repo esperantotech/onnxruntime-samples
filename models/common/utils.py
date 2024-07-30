@@ -82,10 +82,10 @@ def get_in_out_names(session):
     return (input_name, output_name)
 
 
-def check_and_compare(golden_outputs : np.ndarray, etsoc_outputs : np.ndarray, batch = 1, num_inferences = 1):
+def check_and_compare(golden_outputs : np.ndarray, etsoc_outputs : np.ndarray, batch = 1, num_launches = 1):
     """Compare the results with reference outputs up to 4 decimal places"""
     try:
-        for inf in range(num_inferences):
+        for inf in range(num_launches):
             for i in range(batch):
                 np.testing.assert_almost_equal(np.array(golden_outputs[inf][0][i]), np.array(etsoc_outputs[inf][0][i]), 4, err_msg='test', verbose=True)
     except AssertionError:
@@ -179,22 +179,56 @@ def print_img_classification_results(device_string, labels_path, results):
             print('\n')
 
 
-def test_with_tensor(tensorspath : Path, session : ort.InferenceSession):
+def test_with_tensor(tensorspath : Path, session : ort.InferenceSession, args : ArgumentParser):
     output_tensors_names = [tensor.name for tensor in session.get_outputs()]
 
     input_tensors = {}
     for input in session.get_inputs():
-        input_tensors[input.name] = np.fromfile(f'{tensorspath}/{input.name}.bin', dtype=np.int64)
-        input_tensors[input.name] = input_tensors[input.name].reshape((1, 128))
+        input_tensors[input.name] = np.fromfile(f'{tensorspath}/{input.name}.bin', dtype=np.int64)        
+        input_tensors[input.name] = np.tile(input_tensors[input.name], args.batch)            
+        input_tensors[input.name] = input_tensors[input.name].reshape((args.batch, 128))
         # print(f'Loaded input tensor {input.name} - shape: {input_tensors[input.name].shape}')
     
-    output_tensors = session.run(output_tensors_names, input_tensors)
-    # print(f'Model output tensor(s) names: {output_tensors_names}')
+    results = []
+    #Launching a warm-up run is recommended to avoid initialization overheads when measuring performance
+    if (args.warm_up):
+        if (args.mode == "sync"):
+            output_tensors = session.run(output_tensors_names, input_tensors)
+        else:
+            handle = AsyncRunHandle(1)
+            session.run_async(output_tensors_names, input_tensors, callback, handle)
+            handle.wait()
+        
+    if (args.mode == "sync"):
+        start_time = time.time()
+        for i in range(args.launches):
+            start_launch_time = time.time()
+            output_tensors = session.run(output_tensors_names, input_tensors)
+            end_launch_time = time.time()
+            results.append([output_tensors, (end_launch_time - start_time)])
+        end_time = time.time()            
+    else:
+        async_handles = []
+        start_time = time.time()
+        for i in range(args.launches):
+            handle = AsyncRunHandle(i)
+            async_handles.append(handle)
+            start = time.time()
+            session.run_async(output_tensors_names, input_tensors, callback, handle)
+        
+        #Wait for al async inferences to complete
+        for handle in async_handles:
+            handle.wait()
 
-    return input_tensors, output_tensors
+        end_time = time.time()
+        # print(f'Model output tensor(s) names: {output_tensors_names}')
+        for handle in async_handles:
+            results.append([handle.get_results(), handle.get_duration()])
+
+    return input_tensors, results, (end_time - start_time)
 
 
-def test_with_images(imagespath : Path, session : ort.InferenceSession, batch = 1, num_inferences = 1, mode = "sync"):
+def test_with_images(imagespath : Path, session : ort.InferenceSession, args):
     """Test current session model against real inputs."""
     in_name, out_name = get_in_out_names(session)
 
@@ -202,38 +236,54 @@ def test_with_images(imagespath : Path, session : ort.InferenceSession, batch = 
     images = load_image_files(imagespath / 'images')
     image_batch = []
     images_list = list(images.keys())
-    for id in range(batch):
+    for id in range(args.batch):
         next_image = images[images_list[id%len(images_list)]]
         image_batch.append(next_image['data'][0,:,:,:])
     batch_data = np.array(image_batch)
 
     # Run inferences in sync or async mode
     results = []
-    if (mode == "sync"):
-        for id in range(num_inferences):
+    if (args.mode == "sync"):
+        
+        if (args.warm_up):
+            batch_results = session.run([out_name], {in_name: batch_data})
+
+        total_start = time.time()
+        for id in range(args.launches):
             start = time.time()
             batch_results = session.run([out_name], {in_name: batch_data})
             end = time.time()
             # Post-process
             results.append([[postprocess(result) for result in batch_results], end - start])
-
-    elif (mode == "async"):
+        total_end = time.time()
+        print("end Sync execution")
+    elif (args.mode == "async"):
         async_handles = []
-        for id in range(num_inferences):
+
+        if (args.warm_up):
+            handle = AsyncRunHandle(1)
+            session.run_async([out_name], {in_name: batch_data}, callback, handle)
+            handle.wait()
+
+        total_start = time.time()
+        for id in range(args.launches):
             handle = AsyncRunHandle(id)
             async_handles.append(handle)
+            start = time.time()
             session.run_async([out_name], {in_name: batch_data}, callback, handle)
-
+        
         # Wait for all async inferences to complete
         for handle in async_handles:
             handle.wait()
+        total_end = time.time()
 
         # Post-process (softmax)
         for handle in async_handles:
             batch_results = handle.get_results()
             results.append([[postprocess(result) for result in batch_results], handle.get_duration()])
-
-    return results
+        print("end Async execution")
+        
+    return results, (total_end - total_start)
 
 def set_verbose_output(options, enabled):
     log_severity_verbose = 0
@@ -261,6 +311,10 @@ def get_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
     parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory", type=Path)
     parser.add_argument("-t", "--enable-tracing", action='store_true')
     parser.add_argument("-v", "--verbose", default=False)
+    parser.add_argument("-m", "--mode", choices = ["sync","async"], 
+                        help = "specify the runmode",
+                        type = str, default="sync")
+
     return parser
 
 def get_img_classifier_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
@@ -278,13 +332,15 @@ def get_img_classifier_arg_parser(argv: Optional[Sequence[str]] = None) -> Argum
     parser.add_argument("-m", "--mode", choices = ["sync","async"], 
                         help = "specify the runmode",
                         type = str, default="sync")
-    parser.add_argument("-t", "--total-inferences", 
-                        help = "Defines the total number of inferences to do",
+    parser.add_argument("-l", "--launches", 
+                        help = "Defines the total number of launches to do",
                         type = check_positive, default=1)
     parser.add_argument("-d", "--delete-tensor",
                         help = "remove tensor once run have been done. Only in async mode",
                         type = bool, default=False)
     parser.add_argument("--enable-tracing", action='store_true')
+    parser.add_argument("-w", "--warm-up", action = 'store_true',
+                        help='Skip first session run for getting accurate measures on run session')
 
     return parser
 

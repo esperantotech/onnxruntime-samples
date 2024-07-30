@@ -28,7 +28,7 @@ def main(argv: Optional[Sequence[str]] = None):
     parser = utils.get_img_classifier_arg_parser()
     args = parser.parse_args(argv)
     batch = args.batch
-    num_inferences = args.total_inferences
+    num_inferences = args.launches
 
     # Paths
     artifacts_path = Path(args.artifacts)
@@ -53,13 +53,13 @@ def main(argv: Optional[Sequence[str]] = None):
     # CPU
     sess_options.profile_file_prefix = f'{modelname}_cpu_inf_{num_inferences}_batch_{batch}'
     session_cpu  = ort.InferenceSession(modelpath, sess_options, providers=['CPUExecutionProvider'])
-    results_imagenet_cpu = utils.test_with_images(imagespath, session_cpu, batch, num_inferences)
+    results_imagenet_cpu = utils.test_with_images(imagespath, session_cpu, args)
     session_cpu.end_profiling()
 
     # ETSoC
     sess_options.profile_file_prefix = f'{modelname}_etglow_inf_{num_inferences}_batch_{batch}'
     session_etglow = ort.InferenceSession(modelpath, sess_options, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
-    results_imagenet_etglow = utils.test_with_images(imagespath, session_etglow, batch, num_inferences, args.mode)
+    results_imagenet_etglow = utils.test_with_images(imagespath, session_etglow, args)
     session_etglow.end_profiling()
 
     # Compare cpu and etglow results
@@ -68,8 +68,8 @@ def main(argv: Optional[Sequence[str]] = None):
         raise RuntimeError('Error: cpu and etglow provider results are not equal!') 
     
     # Print cpu and etglow stats
-    utils.print_img_classification_results('Reference CPU', labelspath, results_imagenet_cpu)
-    utils.print_img_classification_results('ETSoC', labelspath, results_imagenet_etglow)
+    utils.print_img_classification_results('Reference CPU', labelspath, results_imagenet_cpu[0])
+    utils.print_img_classification_results('ETSoC', labelspath, results_imagenet_etglow[0])
 
 
 if __name__ == "__main__":

@@ -23,13 +23,18 @@ def get_provider_options(args) -> dict:
 
     return poptions
 
+def extra_arguments(parser):
+    parser.add_argument("-p", "--performance", action = 'store_true',
+                        help='Performance are calculate over images on silicon skiping other executions.')    
 
 def main(argv: Optional[Sequence[str]] = None):
     """Launch RESNET50 onnx model on cpu and etglow providers and compare results."""
-    parser = utils.get_img_classifier_arg_parser()
+    parser = utils.get_img_classifier_arg_parser()   
+    extra_arguments(parser)
     args = parser.parse_args(argv)
+
     batch = args.batch
-    num_inferences = args.total_inferences
+    num_launches = args.launches
 
     # Paths
     artifacts_path = Path(args.artifacts)
@@ -42,41 +47,50 @@ def main(argv: Optional[Sequence[str]] = None):
     # Session and provider options
     sess_options = ort.SessionOptions()
     if (args.mode == "async"):        
-        sess_options.intra_op_num_threads=2
+        sess_options.intra_op_num_threads=10
     print (f'Session intra-op num. threads: {sess_options.intra_op_num_threads}')
 
     utils.set_verbose_output(sess_options, args.verbose)
     sess_options.enable_profiling = args.enable_tracing
+    # Set graph optimization level
+    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     poptions = get_provider_options(args)
-    print(poptions)
-
+    
     print('Executing inferences...\n')
     
-    # Run cpu provider inferences
-    sess_options.profile_file_prefix = f'{modelname}_cpu_inf_{num_inferences}_batch_{batch}'
-    session_cpu    = ort.InferenceSession(modelpath, sess_options, providers=['CPUExecutionProvider'])
-    results_proto_cpu = utils.test_with_protobuf(protobufpath, session_cpu)
-    results_imagenet_cpu = utils.test_with_images(imagespath, session_cpu, batch, num_inferences)
-    session_cpu.end_profiling()
+    if (not args.performance):
+        # Run cpu provider inferences
+        sess_options.profile_file_prefix = f'{modelname}_cpu_inf_{num_launches}_batch_{batch}'
+        session_cpu    = ort.InferenceSession(modelpath, sess_options, providers=['CPUExecutionProvider'])
+        results_proto_cpu = utils.test_with_protobuf(protobufpath, session_cpu)
+        results_imagenet_cpu, cpu_inf_sec = utils.test_with_images(imagespath, session_cpu, args)
+        session_cpu.end_profiling()
 
-    # Run etglow provider inferences
-    sess_options.profile_file_prefix = f'{modelname}_etglow_inf_{num_inferences}_batch_{batch}'
-    session_etglow = ort.InferenceSession(modelpath, sess_options, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
-    results_proto_etglow = utils.test_with_protobuf(protobufpath, session_etglow)
-    results_imagenet_etglow = utils.test_with_images(imagespath, session_etglow, batch, num_inferences, args.mode)
-    session_etglow.end_profiling()
+        # Run etglow provider inferences
+        sess_options.profile_file_prefix = f'{modelname}_etglow_inf_{num_launches}_batch_{batch}'
+        session_etglow = ort.InferenceSession(modelpath, sess_options, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
+        results_proto_etglow = utils.test_with_protobuf(protobufpath, session_etglow)
+        results_imagenet_etglow, et_total_time = utils.test_with_images(imagespath, session_etglow, args)
+        session_etglow.end_profiling()
 
-    # Compare cpu and etglow results
-    is_correct = utils.check_and_compare(results_imagenet_cpu, results_imagenet_etglow, batch, num_inferences)
-    if not is_correct:
-        raise RuntimeError('Error: cpu and etglow provider results are not equal!') 
-    
-    # Print cpu and etglow stats
-    utils.print_img_classification_results('Reference CPU', labelspath, results_imagenet_cpu)
-    print(f'Protobuf test took {results_proto_cpu[0][1]:.3f}s\n')
-    utils.print_img_classification_results('ETSoC', labelspath, results_imagenet_etglow)
-    print(f'Protobuf test took {results_proto_etglow[0][1]:.3f}s\n')
+        # Compare cpu and etglow results
+        is_correct = utils.check_and_compare(results_imagenet_cpu, results_imagenet_etglow, batch, num_launches)
+        if not is_correct:
+            raise RuntimeError('Error: cpu and etglow provider results are not equal!') 
+        
+        # Print cpu and etglow stats
+        utils.print_img_classification_results('Reference CPU', labelspath, results_imagenet_cpu)
+        print(f'Protobuf test took {results_proto_cpu[0][1]:.3f}s\n')
+        utils.print_img_classification_results('ETSoC', labelspath, results_imagenet_etglow)
+        print(f'Protobuf test took {results_proto_etglow[0][1]:.3f}s\n')
+    else:
+        sess_options.profile_file_prefix = f'{modelname}_etglow_inf_{num_launches}_batch_{batch}'
+        session_etglow = ort.InferenceSession(modelpath, sess_options, providers=['EtGlowExecutionProvider'], provider_options=[poptions])
+        results_imagenet_etglow, et_total_time = utils.test_with_images(imagespath, session_etglow, args)
+        session_etglow.end_profiling()
 
+        print(f'Total launches {num_launches} batch used {batch} in {et_total_time} s.')
+        print(f'ET_provider Performance: {(num_launches*batch)/et_total_time:.4f} inf/sec')
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

@@ -99,7 +99,7 @@ build:sonarqube-check:
       artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
 
       # Show current python packages installed
-      pip freeze
+      #pip freeze
 
     CMD_BUILD: | 
       if [ $API_TYPE == "C++" ]; then
@@ -133,21 +133,21 @@ build:sonarqube-check:
         python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 5
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --total-inferences 2
+        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 5
+        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --launches 2
         if [ $DEVICE_TYPE == "silicon" ]; then
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --mode async
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --total-inferences 2 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 5 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --total-inferences 2 --batch 5
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 10 --batch 3
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --total-inferences 2 --batch 5 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 10 --batch 3 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --launches 2 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 5 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --launches 2 --batch 5
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 10 --batch 3
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --launches 2 --batch 5 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 10 --batch 3 --mode async
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --batch 100
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 1000 --batch 5
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 1000 --batch 5
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --batch 100 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --total-inferences 1000 --batch 5 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 1000 --batch 5 --mode async
         fi
         python3 models/image-classifier/python/mobilenet.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/vgg16.py --artifacts DownloadArtifactory
@@ -195,8 +195,8 @@ build:sonarqube-check:
         python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory
         python3 models/language-model/python/bert.py -b albert -a DownloadArtifactory
         python3 models/language-model/python/bert.py -b bert-large -a DownloadArtifactory
-        python3 models/language-model/python/bert.py -b distilbert -a DownloadArtifactory
-
+        python3 models/language-model/python/bert.py -b distilbert -a DownloadArtifactory        
+        
         # llama3
         python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/llama3-8b-instruct-kvc-int4/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/llama3 -g 10
         python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/llama3-8b-instruct-kvc-fp16/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/llama3 -g 10
@@ -264,6 +264,44 @@ build:sonarqube-check:
 
         fi
       fi
+
+.tests:performance:
+  extends:
+    - .pod_large
+    - .template_job
+  stage: test
+  rules:
+    - *development_job_rule
+  variables:
+    TEMP_DIR: temp
+    TIMEOUT: 100m
+    GLOG_minloglevel: 2
+    CMD_SETUP_EXTRA_DEPS: |
+      sudo apt-get update --fix-missing
+      sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
+
+      python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
+      python3 -m pip install opencv-python-headless~=4.10.0.84
+      artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
+
+      # Generate squad datasets
+      artifacts/squad-dataset-to-input-tensor.py --model bert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/bert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
+      artifacts/squad-dataset-to-input-tensor.py --model albert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/albert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
+      artifacts/squad-dataset-to-input-tensor.py --model distilbert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/distilbert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
+
+    CMD_SCRIPT: |
+      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
+      
+      python3 models/image-classifier/python/resnet50.py -a DownloadArtifactory --warm-up --launches 1000 --batch 1 --enable-tracing --mode async --performance
+
+      python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory --enable-tracing --warm-up --launches 2
+      python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --performance --mode async
+      python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --performance --mode async
+      python3 models/language-model/python/bert.py -b bert-large -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --performance --mode async
+      python3 models/language-model/python/bert.py -b bert-large -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --performance --mode async
+
+      python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --performance --mode async --fp16
+      python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --performance --mode async --fp16
 
 tests:image-classification:python:sw-sysemu:
   extends:
@@ -334,6 +372,21 @@ tests:language-model:python:silicon:
 tests:text-to-image:python:silicon:
   extends:
     - .tests:text-to-image
+  image:
+    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
+    entrypoint: [""]
+  variables:
+    DEVICE_TYPE: silicon
+    ORT_ETGLOW_DEVICE_TYPE: silicon
+    API_TYPE: python
+  tags:
+    - silicon
+    - 1-card-silicon
+    - mv-gb-swci01
+
+tests:performance:python:silicon:
+  extends:
+    - .tests:performance
   image:
     name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
     entrypoint: [""]
