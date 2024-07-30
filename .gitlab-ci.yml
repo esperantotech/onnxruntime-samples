@@ -163,7 +163,7 @@ build:sonarqube-check:
     - *development_job_rule
   variables:
     TEMP_DIR: temp
-    TIMEOUT: 110m
+    TIMEOUT: 150m
     GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
     CXX_SOURCE_PATH: models/language-model/c++
     CXX_BUILD_PATH: models/language-model/c++/build
