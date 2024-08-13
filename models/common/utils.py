@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 import cv2
 import json
 import time
@@ -178,34 +177,42 @@ def print_img_classification_results(device_string, labels_path, results):
                 print(f'{labels[str(sorted_idx[i])][1]}({confidence}) ', end = '')
             print('\n')
 
-
 def test_with_tensor(tensorspath : Path, session : ort.InferenceSession, args : ArgumentParser):
     output_tensors_names = [tensor.name for tensor in session.get_outputs()]
 
-    input_tensors = {}
-    for input in session.get_inputs():
-        input_tensors[input.name] = np.fromfile(f'{tensorspath}/{input.name}.bin', dtype=np.int64)        
-        input_tensors[input.name] = np.tile(input_tensors[input.name], args.batch)            
-        input_tensors[input.name] = input_tensors[input.name].reshape((args.batch, 128))
-        # print(f'Loaded input tensor {input.name} - shape: {input_tensors[input.name].shape}')
+    input_tensors_list = []
     
+    for i in range(args.launches):
+        input_tensors = {}
+        for input in session.get_inputs():
+            input_tensors[input.name] = np.array([], dtype = np.int64)
+        for b in range(args.batch):
+            current_tensorspath = f'{tensorspath}/inference-{str((i+b)%128)}'
+            for input in session.get_inputs():
+                values = np.fromfile(f'{current_tensorspath}/{input.name}.bin', dtype = np.int64)
+                input_tensors[input.name] = np.append(input_tensors[input.name], values)
+        for input in session.get_inputs():
+            input_tensors[input.name] = input_tensors[input.name].reshape((args.batch, 128))
+        
+        input_tensors_list.append(input_tensors)
+
     results = []
     #Launching a warm-up run is recommended to avoid initialization overheads when measuring performance
     if (args.warm_up):
         if (args.mode == "sync"):
-            output_tensors = session.run(output_tensors_names, input_tensors)
+            output_tensors = session.run(output_tensors_names, input_tensors_list[0])
         else:
             handle = AsyncRunHandle(1)
-            session.run_async(output_tensors_names, input_tensors, callback, handle)
+            session.run_async(output_tensors_names, input_tensors_list[0], callback, handle)
             handle.wait()
         
     if (args.mode == "sync"):
         start_time = time.time()
         for i in range(args.launches):
             start_launch_time = time.time()
-            output_tensors = session.run(output_tensors_names, input_tensors)
+            output_tensors = session.run(output_tensors_names, input_tensors_list[i])
             end_launch_time = time.time()
-            results.append([output_tensors, (end_launch_time - start_time)])
+            results.append([output_tensors, (end_launch_time - start_launch_time)])
         end_time = time.time()            
     else:
         async_handles = []
@@ -213,8 +220,7 @@ def test_with_tensor(tensorspath : Path, session : ort.InferenceSession, args : 
         for i in range(args.launches):
             handle = AsyncRunHandle(i)
             async_handles.append(handle)
-            start = time.time()
-            session.run_async(output_tensors_names, input_tensors, callback, handle)
+            session.run_async(output_tensors_names, input_tensors_list[i], callback, handle)
         
         #Wait for al async inferences to complete
         for handle in async_handles:
@@ -225,7 +231,7 @@ def test_with_tensor(tensorspath : Path, session : ort.InferenceSession, args : 
         for handle in async_handles:
             results.append([handle.get_results(), handle.get_duration()])
 
-    return input_tensors, results, (end_time - start_time)
+    return input_tensors_list, results, (end_time - start_time)
 
 
 def test_with_images(imagespath : Path, session : ort.InferenceSession, args):
@@ -306,40 +312,38 @@ def check_positive(value):
         raise Exception(f'{value} is not an integer.')
     return value
 
-def get_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
+def get_common_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
     parser = ArgumentParser()
-    parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory", type=Path)
-    parser.add_argument("-t", "--enable-tracing", action='store_true')
-    parser.add_argument("-v", "--verbose", default=False)
-    parser.add_argument("-m", "--mode", choices = ["sync","async"], 
-                        help = "specify the runmode",
-                        type = str, default="sync")
-
-    return parser
-
-def get_img_classifier_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
-    parser = ArgumentParser()
-    parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory")
-    parser.add_argument("-v", "--verbose",
-                        help = "It shows help info messages",
-                        type = bool, default=False)
+    parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory", 
+                        type=Path)
     parser.add_argument("-b", "--batch", 
                         help = "specify the number of batches", 
                         type = check_positive, default = 1)
-    parser.add_argument("-i", "--image", 
-                        help = "specify the image to do batch or/and inference", 
-                        type = str, default="")
     parser.add_argument("-m", "--mode", choices = ["sync","async"], 
                         help = "specify the runmode",
                         type = str, default="sync")
     parser.add_argument("-l", "--launches", 
-                        help = "Defines the total number of launches to do",
+                        help = "Defines the total number of executions to do",
                         type = check_positive, default=1)
+    parser.add_argument("-w", "--warm-up", action = 'store_true',
+                        help='Skip first session run for getting accurate measures on run session')
     parser.add_argument("-d", "--delete-tensor",
                         help = "remove tensor once run have been done. Only in async mode",
                         type = bool, default=False)
-    parser.add_argument("--enable-tracing", action='store_true')
-    parser.add_argument("-w", "--warm-up", action = 'store_true',
-                        help='Skip first session run for getting accurate measures on run session')
+    parser.add_argument("-t", "--enable-tracing", action='store_true',
+                        help = 'Enable onnxruntime profiling and neuralizer traces')
+    parser.add_argument("-v", "--verbose",
+                        help = "It shows help info messages",
+                        type = bool, default=False)
+    return parser
+    
+def extra_arguments(parser : ArgumentParser) -> ArgumentParser:
+    parser.add_argument("--fp16", action = 'store_true',
+                        help = 'Force the use of 16-bit floating point values when true')
+    return parser
 
+def get_img_classifier_arg_parser(parser : ArgumentParser) -> ArgumentParser:
+    parser.add_argument("-i", "--image", 
+                        help = "specify the image to do batch or/and inference", 
+                        type = str, default="")
     return parser

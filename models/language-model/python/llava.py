@@ -33,8 +33,6 @@ def extra_arguments(parser):
                         help = 'Query on the given image')
     parser.add_argument("-n", '--new-tokens', type = int, default = 10,
                         help = 'Number of new tokes to generate')
-    parser.add_argument('--enable_tracing', action = 'store_true', default = False,
-                    help = 'Enable onnxruntime profiling and neuralizer traces')
 
 def _merge_input_ids_with_image_features(image_features, inputs_embeds, input_ids, attention_mask, labels):
     pad_token_id = -1
@@ -248,7 +246,7 @@ def print_llava_results(execution_provider, answer, times):
     print(f"    Answer: {answer}")
 
 def main():
-    parser = utils.get_arg_parser()
+    parser = utils.get_common_arg_parser()
     extra_arguments(parser)
     args = parser.parse_args(sys.argv[1:])
     answer_cpu, times_cpu = run_llava(args, 'CPUExecutionProvider')

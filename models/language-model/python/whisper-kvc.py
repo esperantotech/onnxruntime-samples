@@ -18,9 +18,6 @@ def extra_arguments(parser):
                         help = 'Audio to transcribe')
     parser.add_argument("-n", '--new-tokens', type = int, default = 20,
                         help = 'Number of new tokens to generate')
-    parser.add_argument('--enable_tracing', action = 'store_true', default = False,
-                        help = 'Enable onnxruntime profiling and neuralizer traces')
-
 
 # Define etglow api parameters
 def get_etglow_api_params(args):
@@ -166,7 +163,7 @@ def decoder_loop(decoder_session, decoder_output_names, cross_attn_tensors, num_
 def main(argv: Optional[Sequence[str]] = None):
     num_seconds = 28.8
 
-    parser = utils.get_arg_parser()
+    parser = utils.get_common_arg_parser()
     extra_arguments(parser)
     args = parser.parse_args(argv)
 

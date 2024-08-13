@@ -87,7 +87,7 @@ def test_images(imagespath : Path, session, sessionEtsoc):
 
 def main(argv: Optional[Sequence[str]] = None):    
     """Launch MNIST onnx model over cpu and etglow and compare results."""
-    parser = utils.get_arg_parser()
+    parser = utils.get_common_arg_parser()
     args = parser.parse_args(argv)
 
     artifacts_path = Path(args.artifacts) 

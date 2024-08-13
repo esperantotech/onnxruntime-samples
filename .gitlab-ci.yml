@@ -192,10 +192,10 @@ build:sonarqube-check:
 
       if [ $API_TYPE == "python" ]; then
         # bert
-        python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory
-        python3 models/language-model/python/bert.py -b albert -a DownloadArtifactory
-        python3 models/language-model/python/bert.py -b bert-large -a DownloadArtifactory
-        python3 models/language-model/python/bert.py -b distilbert -a DownloadArtifactory        
+        python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory
+        python3 models/language-model/python/bert.py --bert-variant albert -a DownloadArtifactory
+        python3 models/language-model/python/bert.py --bert-variant bert-large -a DownloadArtifactory
+        python3 models/language-model/python/bert.py --bert-variant distilbert -a DownloadArtifactory        
         
         # llama3
         python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/llama3-8b-instruct-kvc-int4/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/llama3 -g 10
@@ -292,16 +292,16 @@ build:sonarqube-check:
     CMD_SCRIPT: |
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
       
-      python3 models/image-classifier/python/resnet50.py -a DownloadArtifactory --warm-up --launches 1000 --batch 1 --enable-tracing --mode async --performance
+      python3 models/image-classifier/python/resnet50.py -a DownloadArtifactory --warm-up --launches 1000 --batch 1 --enable-tracing --mode async
 
-      python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory --enable-tracing --warm-up --launches 2
-      python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --performance --mode async
-      python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --performance --mode async
-      python3 models/language-model/python/bert.py -b bert-large -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --performance --mode async
-      python3 models/language-model/python/bert.py -b bert-large -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --performance --mode async
+      python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory --enable-tracing --warm-up --launches 2
+      python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --mode async
+      python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --mode async
+      python3 models/language-model/python/bert.py --bert-variant bert-large -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --mode async
+      python3 models/language-model/python/bert.py --bert-variant bert-large -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --mode async
 
-      python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --performance --mode async --fp16
-      python3 models/language-model/python/bert.py -b bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --performance --mode async --fp16
+      python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --mode async --fp16
+      python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --mode async --fp16
 
 tests:image-classification:python:sw-sysemu:
   extends:
