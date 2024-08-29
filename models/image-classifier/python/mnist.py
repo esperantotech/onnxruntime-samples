@@ -98,6 +98,7 @@ def main(argv: Optional[Sequence[str]] = None):
     protobufpath =  artifacts_path / 'input_data/protobuf/mnist/'
 
     sess_options = ort.SessionOptions()
+    sess_options.enable_profiling = args.enable_tracing
     utils.set_verbose_output(sess_options, args.verbose)
 
     session_cpu    = ort.InferenceSession(modelpath, sess_options, providers=['CPUExecutionProvider'])

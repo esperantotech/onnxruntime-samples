@@ -37,11 +37,7 @@ def get_etglow_api_params(args):
                 '--enableGraphLogs=none',
             ]),
         ]) + "'"
-    ]
-    if args.enable_tracing:
-        api_params += ["trace-neuralizer-nodes=true",
-                    "trace-neuralizer-path=neuralizer.json"]
-        
+    ]        
     return ';'.join(api_params)
 
 

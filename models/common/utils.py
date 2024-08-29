@@ -343,8 +343,3 @@ def get_img_classifier_arg_parser(argv: Optional[Sequence[str]] = None) -> Argum
                         help='Skip first session run for getting accurate measures on run session')
 
     return parser
-
-
-def get_tracing_params(): 
-    return ';'.join(["trace-neuralizer-nodes=true", "trace-neuralizer-path=neuralizer-trace.json",
-                     "trace-runtime-path=runtime-trace.json"])

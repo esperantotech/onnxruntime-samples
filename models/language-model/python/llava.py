@@ -17,9 +17,6 @@ from common import utils
 def get_provider_options(args):
     api_params = get_api_params()
     
-    if args.enable_tracing:
-        api_params += "trace-neuralizer-nodes=true;trace-neuralizer-path=neuralizer.json"
-
     onnx_shape_params = ';'.join([f"{k}={v}" for k, v in onnx_symbols.items()])
 
     provider_options = {
@@ -30,8 +27,6 @@ def get_provider_options(args):
     return provider_options
 
 def extra_arguments(parser):
-    parser.add_argument("--device-trace-nodes", action="store_true",
-                        help = 'Adds device trace nodes')
     parser.add_argument("-i", '--image', type = str, default = './doge.jpg',
                         help = 'Image to analyze')
     parser.add_argument("-p", '--prompt', type = str, default = '',

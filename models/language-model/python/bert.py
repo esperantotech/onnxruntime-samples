@@ -43,12 +43,7 @@ def get_api_params():
     return api_params
 
 def get_provider_options(args) -> dict:
-
     api_params = get_api_params()
-
-    if args.enable_tracing:
-        api_params += ";"+utils.get_tracing_params()
-
     if args.fp16:
         api_params += ";"+';'.join([f"useFP16='{args.fp16}'"])
 
