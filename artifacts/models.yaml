@@ -224,20 +224,16 @@ data:
         path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/llama3-8b-instruct-fp16/1.tar.gz'
       version: 1
 
-    llama3-8b-instruct-kvc-fp16:
+    llama3-8b-Instruct-kvc-fp16-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/llama3-8b-instruct-kvc-fp16/2
-        server: aws_s3
-        wget_options: '-O - | tar xzf -'
-        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/llama3-8b-instruct-kvc-fp16/2.tar.gz'
+      - path: sw-ci-inputs/models/llama3-8b-Instruct-kvc-fp16-onnx
+        server: hg_face
       version: 2
 
-    llama3-8b-instruct-kvc-int4:
+    llama3-8b-Instruct-kvc-AWQ-int4-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/llama3-8b-instruct-kvc-int4/1
-        server: aws_s3
-        wget_options: '-O - | tar xzf -'
-        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/llama3-8b-instruct-kvc-int4/SR-awq.tar.gz'
+      - path: sw-ci-inputs/models/llama3-8b-Instruct-kvc-AWQ-int4-onnx
+        server: hg_face
       version: 1
 
     mistral-7b-fp16:
@@ -258,18 +254,14 @@ data:
 
     mistral-instruct-7b-kvc-fp16:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/mistral-instruct-7b-kvc-fp16/2
-        server: aws_s3
-        wget_options: '-O - | tar xzf -'
-        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/mistral-instruct-7b-kvc-fp16/2.tar.gz'
+      - path: sw-ci-inputs/models/mistral-instruct-7b-kvc-fp16
+        server: hg_face
       version: 2
 
-    mistral-instruct-7b-kvc-int4:
+    mistral-7b-Instruct-v0.2-kvc-AWQ-int4-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/mistral-instruct-7b-kvc-int4/1
-        server: aws_s3
-        wget_options: '-O - | tar xzf -'
-        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/mistral-instruct-7b-kvc-int4/TB-awq.tar.gz'
+      - rel_local_dir: sw-ci-inputs/models/mistral-7b-Instruct-v0.2-kvc-AWQ-int4-onnx
+        server: hg_face
       version: 1 
 
     vicuna-1.5-7b-int4:
@@ -280,12 +272,10 @@ data:
         path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/vicuna-1.5-7b-int4/TB-awq.tar.gz'
       version: 1
 
-    vicuna-1.5-7b-kvc-int4:
+    vicuna-7b-v1.5-kvc-AWQ-int4-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/vicuna-1.5-7b-kvc-int4/2
-        server: aws_s3
-        wget_options: '-O - | tar xzf -'
-        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/vicuna-1.5-7b-kvc-int4/TB-awq-2.tar.gz'
+      - rel_local_dir: sw-ci-inputs/models/vicuna-7b-v1.5-kvc-AWQ-int4-onnx
+        server: hg_face
       version: 2
 
     mistral-7b-int4:
