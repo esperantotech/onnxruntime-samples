@@ -252,9 +252,9 @@ data:
         path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/mistral-7b-kvc-fp16/3.tar.gz'
       version: 3
 
-    mistral-instruct-7b-kvc-fp16:
+    mistral-7b-Instruct-v0.2-kvc-fp16-onnx:
       servers:
-      - path: sw-ci-inputs/models/mistral-instruct-7b-kvc-fp16
+      - path: sw-ci-inputs/models/mistral-7b-Instruct-v0.2-kvc-fp16-onnx
         server: hg_face
       version: 2
 
