@@ -260,7 +260,7 @@ data:
 
     mistral-7b-Instruct-v0.2-kvc-AWQ-int4-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/mistral-7b-Instruct-v0.2-kvc-AWQ-int4-onnx
+      - path: sw-ci-inputs/models/mistral-7b-Instruct-v0.2-kvc-AWQ-int4-onnx
         server: hg_face
       version: 1 
 
@@ -274,7 +274,7 @@ data:
 
     vicuna-7b-v1.5-kvc-AWQ-int4-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/vicuna-7b-v1.5-kvc-AWQ-int4-onnx
+      - path: sw-ci-inputs/models/vicuna-7b-v1.5-kvc-AWQ-int4-onnx
         server: hg_face
       version: 2
 
