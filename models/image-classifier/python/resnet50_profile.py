@@ -15,9 +15,7 @@ def get_provider_options(args) -> dict:
         "etglow_onnx_shape_params": f'N={args.batch}'
     }
 
-    api_params = ""
-    if args.enable_tracing:
-        api_params += utils.get_tracing_params()
+    api_params = "glow-threads=4"
 
     if api_params:
         poptions["etglow_api_params"] =  api_params

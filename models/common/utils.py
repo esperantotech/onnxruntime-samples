@@ -11,6 +11,7 @@ import onnxruntime as ort
 from argparse import ArgumentParser, Namespace
 from typing import Sequence, Optional
 from pathlib import Path
+from scipy.special import softmax
 
 import threading
 
@@ -63,16 +64,6 @@ def load_pb_data(protobufpath : Path) -> np.ndarray:
     return pb_data
 
 
-def softmax(x):
-    x = x.reshape(-1)
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum(axis=0)
-
-
-def postprocess(result):
-    return softmax(np.array(result)).tolist()
-
-
 def get_in_out_names(session):
     """Get input and output data name of model"""
     input_name = session.get_inputs()[0].name
@@ -81,13 +72,19 @@ def get_in_out_names(session):
     return (input_name, output_name)
 
 
-def check_and_compare(golden_outputs : np.ndarray, etsoc_outputs : np.ndarray, batch = 1, num_launches = 1):
+def check_equal_results(golden_results : np.ndarray, etsoc_results : np.ndarray, num_launches = 1):
+    for i in range(num_launches):
+        if (not check_equal_values(golden_results[i][0], etsoc_results[i][0])):
+            return False
+    return True
+
+
+def check_equal_values(a_tensor : np.ndarray, b_tensor : np.ndarray):
     """Compare the results with reference outputs up to 4 decimal places"""
     try:
-        for inf in range(num_launches):
-            for i in range(batch):
-                np.testing.assert_almost_equal(np.array(golden_outputs[inf][0][i]), np.array(etsoc_outputs[inf][0][i]), 4, err_msg='test', verbose=True)
-    except AssertionError:
+        np.testing.assert_almost_equal(np.array(a_tensor).flatten(), np.array(b_tensor).flatten(), 4, err_msg='test', verbose=True)
+    except AssertionError as err:
+        print(err)
         return False
     
     return True
@@ -99,20 +96,18 @@ def test_with_protobuf(protobufpath : Path, session : ort.InferenceSession):
     input_name = session.get_inputs()[0].name
     output_name = session.get_outputs()[0].name
 
-    results = []
-    golden_results = []
+    total_time = 0.0
     for i in range(num_datasets):
         input_tensor = load_pb_data(protobufpath / f'test_data_set_{i}/input_0.pb')
         start = time.time()
-        batch_result = session.run([output_name], {input_name: input_tensor})
-        end = time.time()
-        results.append([batch_result, end - start])
-        golden_results.append([[load_pb_data(protobufpath / f'test_data_set_{i}/output_0.pb')], 0.0])
+        output = session.run([output_name], {input_name: input_tensor})
+        total_time += time.time() - start
+        golden_output = load_pb_data(protobufpath / f'test_data_set_{i}/output_0.pb')
 
-    if not check_and_compare(golden_results, results):
-        raise RuntimeError('Error: results do not match the protobuf golden!')
+        if not check_equal_values(golden_output, output[0]):
+            raise RuntimeError(f'Error: results do not match the protobuf golden ({input_tensor})!')
         
-    return results
+    return total_time
 
 
 def load_json(path):
@@ -161,21 +156,26 @@ def print_img_classification_results(device_string, labels_path, results):
     """Print image classification results including inference execution time and confidence percentage"""
     labels = load_json(labels_path)
 
-    print(f'--- {device_string} results ---')
-    for inference_results in results:
-        batch_results = inference_results[0]
-        inference_time = inference_results[1]
+    print(f'----- {device_string} results -----')
+    for launch_results in results:
+        batch_results = launch_results[0]
+        launch_time = launch_results[1]
         print('-----------------------------------------')
         for result in batch_results:
-            top_idx = str(np.argmax(result))
-            sorted_idx = np.flip(np.squeeze(np.argsort(result)))    
+            sorted_idx = np.flip(np.squeeze(np.argsort(result)))
 
-            print(f'Image classified as {labels[top_idx][1]}! (took {inference_time * 1000:.2f}ms)')
+            # Details about top 1 label
+            top_idx = str(np.argmax(result))
+            top_label = labels[top_idx][1]
+            print(f'Image classified as {top_label}! (took {launch_time * 1000:.2f}ms)')
             print('Top 3 labels: ', end='')
+            # List the top 3
             for i in range(3):
                 confidence = f"{result[sorted_idx[i]] * 100:.2f}%"
-                print(f'{labels[str(sorted_idx[i])][1]}({confidence}) ', end = '')
+                lbl = labels[str(sorted_idx[i])][1]
+                print(f'{lbl}({confidence}) ', end = '')
             print('\n')
+        break # Print only first results
 
 def test_with_tensor(tensorspath : Path, session : ort.InferenceSession, args : ArgumentParser):
     output_tensors_names = [tensor.name for tensor in session.get_outputs()]
@@ -245,39 +245,37 @@ def test_with_images(imagespath : Path, session : ort.InferenceSession, args):
     for id in range(args.batch):
         next_image = images[images_list[id%len(images_list)]]
         image_batch.append(next_image['data'][0,:,:,:])
-    batch_data = np.array(image_batch)
+    input_batch = np.array(image_batch)
 
     # Run inferences in sync or async mode
     results = []
     if (args.mode == "sync"):
         
         if (args.warm_up):
-            batch_results = session.run([out_name], {in_name: batch_data})
+            output_batch = session.run([out_name], {in_name: input_batch})
 
         total_start = time.time()
         for id in range(args.launches):
             start = time.time()
-            batch_results = session.run([out_name], {in_name: batch_data})
+            output_batch = session.run([out_name], {in_name: input_batch})
             end = time.time()
             # Post-process
-            results.append([[postprocess(result) for result in batch_results], end - start])
+            results.append([softmax(output_batch[0], axis=1), end - start])
         total_end = time.time()
-        print("end Sync execution")
+
     elif (args.mode == "async"):
         async_handles = []
 
         if (args.warm_up):
             handle = AsyncRunHandle(1)
-            session.run_async([out_name], {in_name: batch_data}, callback, handle)
+            session.run_async([out_name], {in_name: input_batch}, callback, handle)
             handle.wait()
 
         total_start = time.time()
         for id in range(args.launches):
             handle = AsyncRunHandle(id)
             async_handles.append(handle)
-            start = time.time()
-            session.run_async([out_name], {in_name: batch_data}, callback, handle)
-        
+            session.run_async([out_name], {in_name: input_batch}, callback, handle)
         # Wait for all async inferences to complete
         for handle in async_handles:
             handle.wait()
@@ -285,10 +283,9 @@ def test_with_images(imagespath : Path, session : ort.InferenceSession, args):
 
         # Post-process (softmax)
         for handle in async_handles:
-            batch_results = handle.get_results()
-            results.append([[postprocess(result) for result in batch_results], handle.get_duration()])
-        print("end Async execution")
-        
+            output_batch = handle.get_results()
+            results.append([softmax(output_batch[0], axis=1), handle.get_duration()])
+
     return results, (total_end - total_start)
 
 def set_verbose_output(options, enabled):
