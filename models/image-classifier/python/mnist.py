@@ -99,6 +99,8 @@ def main(argv: Optional[Sequence[str]] = None):
 
     sess_options = ort.SessionOptions()
     sess_options.enable_profiling = args.enable_tracing
+    if args.enable_tracing:
+        sess_options.profile_file_prefix = os.path.basename(__file__)[:-3]
     utils.set_verbose_output(sess_options, args.verbose)
 
     session_cpu    = ort.InferenceSession(modelpath, sess_options, providers=['CPUExecutionProvider'])
