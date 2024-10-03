@@ -15,9 +15,6 @@ def get_provider_options(args) -> dict:
     }
 
     api_params = ""
-    if args.enable_tracing:
-        api_params += utils.get_tracing_params()
-
     if api_params:
         poptions["etglow_api_params"] =  api_params
     
