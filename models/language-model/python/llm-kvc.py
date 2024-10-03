@@ -139,7 +139,7 @@ def llm_kvc_inference(session : onnxruntime.InferenceSession, tokenizer : AutoTo
 
     sum_perplexity /= (num_tokens - 1)
     answer = tokenizer.decode(total_input[0], skip_special_tokens=True, clean_up_tokenization_spaces=False)
-    return (answer, sum_perplexity[0])
+    return answer, sum_perplexity
 
 def get_prompt_tensor(prompt, tokenizer):
     input_tensor = tokenizer(prompt, return_tensors="pt")
