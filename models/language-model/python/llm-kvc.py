@@ -49,9 +49,6 @@ def get_etglow_api_params(enable_tracing):
     ]
     api_params = ';'.join(api_params)
 
-    if enable_tracing:
-        api_params = f'{utils.get_tracing_params()};{api_params}'
-
     return api_params
 
 # Defines dictionaries of onnx symbols
@@ -199,6 +196,7 @@ def main():
     num_tokens = args.generate_tokens
     if args.no_context:
         context_len = sequence_len
+    model_name = str(model_path.parents[0]).replace(str(model_path.parents[1]), '').replace(r'/', '')
 
     # Check inputs
     if not model_path.exists():
@@ -233,7 +231,7 @@ def main():
     window = 1
     # Create cpu ORT session
     start = time.time()
-    session_options.profile_file_prefix = f'{model_path.stem}_cpu_window_{window}'
+    session_options.profile_file_prefix = f'{model_name}_cpu_window_{window}'
     session_cpu = onnxruntime.InferenceSession(fixed_model_path,  sess_options=session_options, providers=['CPUExecutionProvider'])
     comp_time_cpu = time.time() - start
 
@@ -252,7 +250,7 @@ def main():
 
     # Create etglow ORT session
     start = time.time()
-    session_options.profile_file_prefix = f'{model_path.stem}_etglow_window_{window}'
+    session_options.profile_file_prefix = f'{model_name}_etglow_window_{window}'
     session_etglow = onnxruntime.InferenceSession(fixed_model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
     etsoc_comp_time = time.time() - start 
 
