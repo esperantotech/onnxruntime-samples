@@ -210,13 +210,15 @@ def main(argv: Optional[Sequence[str]] = None):
     encoder_input = {"mel": mel.numpy()}
     encoder_output_names = [tensor.name for tensor in encoder.graph.output]
     # CPU encoding
-    session_options.profile_file_prefix = 'whisper_encode_cpu'
-    enc_session_cpu = onnxruntime.InferenceSession(encoder_fixed_dims, sess_options=session_options, providers=['CPUExecutionProvider'])
+    cpu_provider = 'CPUExecutionProvider'
+    session_options.profile_file_prefix = f'whisper_encode_{cpu_provider}'
+    enc_session_cpu = onnxruntime.InferenceSession(encoder_fixed_dims, sess_options=session_options, providers=[cpu_provider])
     cross_attn_tensors_cpu = enc_session_cpu.run(encoder_output_names, encoder_input)
     enc_session_cpu.end_profiling()
     # Etglow encoding
-    session_options.profile_file_prefix = 'whisper_encode_etglow'
-    enc_session_etglow = onnxruntime.InferenceSession(encoder_fixed_dims, sess_options=session_options, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
+    glow_provider = 'EtGlowExecutionProvider'
+    session_options.profile_file_prefix = f'whisper_encode_{glow_provider}'
+    enc_session_etglow = onnxruntime.InferenceSession(encoder_fixed_dims, sess_options=session_options, providers=[glow_provider], provider_options=[provider_options])
     cross_attn_tensors_etglow = enc_session_etglow.run(encoder_output_names, encoder_input)
     enc_session_etglow.end_profiling()
 
@@ -251,8 +253,8 @@ def main(argv: Optional[Sequence[str]] = None):
     # Run decoder model CPU
     decoder_output_names = [tensor.name for tensor in decoder.graph.output]
     
-    run_whisper_decoder(decoder_fixed_model, 'CPUExecutionProvider', session_options, decoder_output_names, cross_attn_tensors_cpu, args.new_tokens)
-    run_whisper_decoder(decoder_fixed_model, 'EtGlowExecutionProvider', session_options, decoder_output_names, cross_attn_tensors_etglow, args.new_tokens, provider_options)
+    run_whisper_decoder(decoder_fixed_model, cpu_provider, session_options, decoder_output_names, cross_attn_tensors_cpu, args.new_tokens)
+    run_whisper_decoder(decoder_fixed_model, glow_provider, session_options, decoder_output_names, cross_attn_tensors_etglow, args.new_tokens, provider_options)
 
  
 if __name__ == "__main__":

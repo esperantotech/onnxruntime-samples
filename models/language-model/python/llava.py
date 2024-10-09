@@ -128,7 +128,7 @@ def get_api_params():
     return api_params
 
 def run_embeds(embeds_model : Path, tokenized_prompt, execution_provider, times, session_options, poptions):
-    session_options.profile_file_prefix = f'embeds_{execution_provider}'
+    session_options.profile_file_prefix = f'llava_embeds_{execution_provider}'
 
     print(f"Running Embeddings in {execution_provider}")
     input_ids = tokenized_prompt["input_ids"]
@@ -143,7 +143,7 @@ def run_embeds(embeds_model : Path, tokenized_prompt, execution_provider, times,
     return outputs, session
 
 def run_clip(clip_model : Path, image : Image,  execution_provider, times, session_options, poptions):
-    session_options.profile_file_prefix = f'clip_{execution_provider}'
+    session_options.profile_file_prefix = f'llava_clip_{execution_provider}'
     print(f"Running CLIP in {execution_provider}")
     processor = AutoProcessor.from_pretrained('llava-hf/llava-1.5-7b-hf', torch_dtype = torch.float16)
     pixel_values = processor.image_processor(image, return_tensors = 'np')["pixel_values"].astype(np.float16)
@@ -158,7 +158,7 @@ def run_clip(clip_model : Path, image : Image,  execution_provider, times, sessi
     return outputs_clip
 
 def run_mmp(proj_model : Path, outputs_clip, execution_provider, times, session_options, poptions):
-    session_options.profile_file_prefix = f'mmp_{execution_provider}'
+    session_options.profile_file_prefix = f'llava_mmp_{execution_provider}'
     print(f"Running MultiModal Projection in {execution_provider}")
     start_time = time.time()
     session_proj = onnxruntime.InferenceSession(proj_model,  sess_option=session_options, providers = [execution_provider], provider_options=[poptions])
