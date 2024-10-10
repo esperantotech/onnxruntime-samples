@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import onnxruntime
 from onnxruntime.tools.onnx_model_utils import make_dim_param_fixed
+from onnxruntime.transformers.io_binding_helper import IOBindingHelper, TypeHelper
 
 from transformers import AutoTokenizer, AutoProcessor
 from scipy.special import softmax
@@ -61,6 +62,8 @@ def parse_arguments():
                         help = 'The number of layers of the model')
     parser.add_argument("--optimization-level", type = str, default = 'ORT_ENABLE_BASIC', choices = ['ORT_DISABLE_ALL', 'ORT_ENABLE_BASIC', 'ORT_ENABLE_EXTENDED', 'ORT_ENABLE_ALL'],
                         help = 'Graph Optimization level in ONNX Runtime')
+    parser.add_argument("--etglow-implementation", type = str, default = 'llm_kvc_inference_iobindings', choices = ['llm_kvc_inference', 'llm_kvc_inference_iobindings'],
+                        help = 'Choose implementation that will be used to run with ETGLOW EP')
     args = parser.parse_args()
 
     if args.window_size > args.sequence_length:
@@ -106,7 +109,7 @@ def get_etglow_api_params(args, sep=';'):
         f"extra-etsoc-params='{extra_params}'"
     ]
     api_params = sep.join(api_params)
-    if args.use_kvc:
+    if args.use_kvc and args.etglow_implementation == "llm_kvc_inference_iobindings":
         api_params += get_device_placeholders(args, sep)
     return api_params
 
@@ -171,8 +174,8 @@ def llm_kvc_inference(session : onnxruntime.InferenceSession, tokenizer : AutoTo
     current_index = 0
     next_index = window
 
-    output_names = [input.name for input in session.get_outputs()]
     inputs_names = [input.name for input in session.get_inputs()]
+    output_names = [output.name for output in session.get_outputs()]
 
     # Run the inferences
     while next_index < num_tokens:
@@ -216,20 +219,23 @@ def llm_kvc_inference(session : onnxruntime.InferenceSession, tokenizer : AutoTo
 
 
 def llm_kvc_inference_iobindings(session : onnxruntime.InferenceSession, tokenizer : AutoTokenizer, input_tensors : dict,
-                                 prompt_tensor, num_tokens, context, sequence_len, window : int, batch : int, nheads=8,
-                                 hidden=128) -> tuple[str, float]:
+                                 prompt_tensor, num_tokens, context, sequence_len, window : int, batch : int) -> tuple[str, float]:
     sum_perplexity = 0
     new_token = np.array([10])
     prompt_size = len(prompt_tensor[0])
     total_input = prompt_tensor
     current_index = 0
     next_index = window
+    # TODO: make 'llm_kvc_inference_iobindings' non-kvc friendly
+    logits_last_dim = int(session.get_outputs()[0].shape[-1])
+    hidden = int(session.get_outputs()[1].shape[-1])
+    nheads = int(session.get_outputs()[1].shape[-3])
 
     inputs_names = [input.name for input in session.get_inputs()]
-    outputs_names = [input.name for input in session.get_outputs()]
+    outputs_names = [output.name for output in session.get_outputs()]
 
     # Pre-allocate inputs
-    ortvalues = preallocate_input_outputs(outputs_names, input_tensors, window, batch, nheads, context, hidden)
+    ortvalues = preallocate_input_outputs(session, outputs_names, input_tensors, window, batch, nheads, context, hidden, logits_last_dim)
 
     # Create IOBindings
     io_binding = session.io_binding()
@@ -285,15 +291,16 @@ def compute_perplexity(logits, next_input_ids):
     # Perform the softmax and perplexity calculation
     return -np.log(softmax(logits)[next_input_ids])
 
-def preallocate_input_outputs(output_names, input_tensors: dict, window : int, batch : int, nheads=8, context=2048, hidden=128,
-                              logits_last_dim=128256, device_type="et", device_id=0) -> dict:
+def preallocate_input_outputs(session : onnxruntime.InferenceSession, output_names: list[str], input_tensors: dict,
+                              window: int, batch: int, nheads: int, context: int, hidden: int, logits_last_dim: int,
+                              device_type="et", device_id=0) -> dict:
     ortvalues = {
         'input_ids':      onnxruntime.OrtValue.ortvalue_from_numpy(input_tensors['input_ids'], device_type, device_id),
         'attention_mask': onnxruntime.OrtValue.ortvalue_from_numpy(input_tensors['attention_mask'], device_type, device_id),
-        'logits':      onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch, window, logits_last_dim), np.float16, device_type, device_id),
+        'logits':      onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch, window, logits_last_dim), TypeHelper.ort_type_to_numpy_type(TypeHelper.get_output_type(session, 'logits')), device_type, device_id),
     }
     # All KVC input (past_key_value) & output (present) tensors will share same underlying allocation.
-    zeros = np.zeros((batch, nheads, context, hidden), dtype=np.float16)
+    zeros = np.zeros((batch, nheads, context, hidden), dtype=TypeHelper.ort_type_to_numpy_type(TypeHelper.get_output_type(session, 'present.0.key')))
     zeros_padded = np.pad(zeros, ((0,0), (0,1), (0, 0), (0,0)), mode='constant')
     for name in output_names:
         if 'present' in name:
@@ -301,7 +308,7 @@ def preallocate_input_outputs(output_names, input_tensors: dict, window : int, b
     return ortvalues
 
 
-def bind_input_outputs(io_binding, inputs_names, outputs_names, ortvalues, batch : int, nheads=8, context=2048, hidden=128):
+def bind_input_outputs(io_binding, inputs_names, outputs_names, ortvalues, batch : int, nheads : int, context : int, hidden : int):
     # Bind inputs (will bind them to the allocated memory)
     for name in inputs_names:
         if name in ['input_ids', 'attention_mask']:
@@ -369,29 +376,38 @@ def get_prompt_tensor(prompt, tokenizer, batch):
     return batched_input_ids
 
 
-def fix_model_dimensions(model_path : Path, onnx_symbols) -> Path:
+def fix_model_dimensions(model_path : Path, onnx_symbols: dict) -> Path:
     # Fix dimensions in the model
     model_noexternaldata = onnx.load(model_path, load_external_data=False)
-    n_heads = int(model_noexternaldata.graph.input[2].type.tensor_type.shape.dim[-3].dim_value)
-    hidden = int(model_noexternaldata.graph.input[2].type.tensor_type.shape.dim[-1].dim_value)
     for key, value in onnx_symbols.items():
         make_dim_param_fixed(model_noexternaldata.graph, key, value)
     model_noexternaldata = model_noexternaldata.SerializeToString()
     fixeddim_model_path = model_path.parent / "model-fixed-dims.onnx"
     with open(fixeddim_model_path, "wb") as f:
         f.write(model_noexternaldata)
-    return fixeddim_model_path, n_heads, hidden
+    return fixeddim_model_path
 
 
-def preprocess_llm_input_tensors(input_ids_tensor : np.ndarray, inputs_names, window, batch, pads, n_heads, hidden, context) -> dict:
+def preprocess_llm_input_tensors(session : onnxruntime.InferenceSession, input_ids_tensor: np.ndarray, args) -> dict:
+    window = args.window_size
+    batch = args.batch
+    pads = args.sequence_length
+    context = get_context_size(args)
+
+    inputs_names = [input.name for input in session.get_inputs()]
     inputs_dict = {
         'input_ids': copy.deepcopy(input_ids_tensor[:, :window].reshape(batch, window)),
         'attention_mask': np.concatenate((np.zeros([batch, pads - window], dtype = 'int64'), np.ones((batch, window), dtype = 'int64')), axis=1)
     }
-    for name in inputs_names:
-        if name not in ['input_ids','attention_mask']:
-            inputs_dict[name] = np.zeros([batch, n_heads, context - window, hidden], dtype="float16")
+    if args.use_kvc:
+        # deduce n_heads and hidden from model using ORT
+        n_heads = int(session.get_outputs()[1].shape[-3])
+        hidden = int(session.get_outputs()[1].shape[-1])
+        for name in inputs_names:
+            if name not in ['input_ids','attention_mask']:
+                inputs_dict[name] = np.zeros([batch, n_heads, context - window, hidden], dtype="float16")
     return inputs_dict
+
 
 def print_llm_inference_setup(model_name, prompt_size, generate_tokens, onnx_symbols):
     print(f"Running model: {model_name}")
@@ -399,11 +415,12 @@ def print_llm_inference_setup(model_name, prompt_size, generate_tokens, onnx_sym
     print(f"    Generating #tokens: {generate_tokens}")
     print(f"    ONNX symbols: {onnx_symbols}")
 
+
 def print_llm_inference_results(label : str, comp_time : float, inf_time : float,  perplexity, answers : [str], num_tokens):
     print(f'{label}:')
     print(f'    Compilation took {comp_time:.2f}s')
     print(f'    Inference took {inf_time:.2f}s ({(num_tokens / inf_time):.2f} tokens/s)')
-    print(f'    Perplexity value: {float(perplexity):.2f}')
+    print(f'    Perplexity value: {float(perplexity.item()):.2f}')
     for i in range(len(answers)):
         print(f'    Question and answer[{i}]: {answers[i]}')
 
@@ -437,7 +454,7 @@ def main():
     session_options.graph_optimization_level = get_graph_optimization_level(args.optimization_level)
 
     # Fix model dimensions (this would not be necessary if we provided all ONNX symbols to Glow)
-    fixed_model_path, n_heads, hidden = fix_model_dimensions(model_path, onnx_symbols)
+    fixed_model_path = fix_model_dimensions(model_path, onnx_symbols)
 
     # Create cpu ORT session
     start = time.time()
@@ -446,8 +463,7 @@ def main():
     comp_time_cpu = time.time() - start
 
     # Process inputs
-    inputs_names = [input.name for input in session_cpu.get_inputs()]
-    input_tensors_cpu = preprocess_llm_input_tensors(prompt_tensor, inputs_names, args.window_size, args.batch, args.sequence_length, n_heads, hidden, context_len)
+    input_tensors_cpu = preprocess_llm_input_tensors(session_cpu, prompt_tensor, args)
 
     # Execute inference on CPU
     start = time.time()
@@ -466,16 +482,22 @@ def main():
     etsoc_comp_time = time.time() - start 
 
     # Process inputs
-    inputs_names = [input.name for input in session_etglow.get_inputs()]
-    input_tensors_etglow = preprocess_llm_input_tensors(prompt_tensor, inputs_names, args.window_size, args.batch, args.sequence_length, n_heads, hidden, context_len)
+    input_tensors_etglow = preprocess_llm_input_tensors(session_etglow, prompt_tensor, args)
 
     # Launch ETSoC inference
     start = time.time()
-    answers_etglow, perplexity_etglow = llm_kvc_inference_iobindings(session_etglow, tokenizer, input_tensors_etglow, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
+    match args.etglow_implementation:
+        case 'llm_kvc_inference_iobindings':
+            answers_etglow, perplexity_etglow = llm_kvc_inference_iobindings(session_etglow, tokenizer, input_tensors_etglow, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
+        case "llm_kvc_inference":
+            answers_etglow, perplexity_etglow = llm_kvc_inference(session_etglow, tokenizer, input_tensors_etglow, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
+        case _:
+            logger.error(f'Unknown etglow_implementation: {args.etglow_implementation}')
     session_etglow.end_profiling()
     inf_time_etsoc = time.time() - start
 
     print_llm_inference_results('ETGlow EP results', etsoc_comp_time, inf_time_etsoc, perplexity_etglow, answers_etglow,  args.batch * args.generate_tokens)
+
 
 if __name__ == "__main__":
     main()
