@@ -76,6 +76,75 @@ build:sonarqube-check:
 ###############################################################################
 ###############################################################################
 
+.tests:silicon:common:
+  extends:
+    - .template_job
+  image:
+    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
+    entrypoint: [""]
+  tags:
+    - silicon
+    - 1-card-silicon
+    - mv-gb-swci01
+  variables:
+    GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
+    CMD_SETUP_EXTRA_DEPS: |
+      # Download models
+      if [ $API_TYPE == "C++" ]; then
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
+      fi
+      python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
+      python3 -m pip install opencv-python-headless~=4.10.0.84
+      artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
+  artifacts:
+    when: always
+    expire_in: 2d
+    paths:
+      - tests/
+
+tests:pytest:image-classification:cxx:
+  extends:
+    - .pod_large
+    - .tests:silicon:common
+  stage: test
+  rules:
+    - *development_job_rule
+  variables:
+    TIMEOUT: 2h
+    CMD_SCRIPT: |
+      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
+      pytest .et/test_onnxruntime_samples.py --verbose -m "cxx and ic" --collect-only
+      pytest .et/test_onnxruntime_samples.py --verbose -m "cxx and ic"
+
+tests:pytest:image-classification:python:
+  extends:
+    - .pod_large
+    - .tests:silicon:common
+  stage: test
+  rules:
+    - *development_job_rule
+  variables:
+    TIMEOUT: 2h
+    CMD_SCRIPT: |
+      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
+      pytest .et/test_onnxruntime_samples.py --verbose -m "python and ic" --collect-only
+      pytest .et/test_onnxruntime_samples.py --verbose -m "python and ic"
+
+tests:pytest:language-models:
+  extends:
+    - .pod_large
+    - .tests:silicon:common
+  stage: test
+  rules:
+    - *development_job_rule
+  variables:
+    TIMEOUT: 4h
+    CMD_SCRIPT: |
+      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
+      pytest .et/test_onnxruntime_samples.py --verbose -m "python and lm" --collect-only
+      pytest .et/test_onnxruntime_samples.py --verbose -m "python and lm"
+
 .tests:image-classification:
   extends:
     - .pod_large

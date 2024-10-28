@@ -11,3 +11,4 @@ diffusers
 accelerate
 image-similarity-measures==0.3.6
 pyfftw
+pytest==8.0.2
