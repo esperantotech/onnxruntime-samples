@@ -71,6 +71,7 @@ static std::atomic_int atomicTotalAsyncCalls(0);
 
 static std::atomic_bool atomic_waitEt{false};
 static std::atomic_int atomicTotalAsyncCallsEt(0);
+static bool all_async_runs_successtul = true;
 
 struct userDataHelper {
   int64_t position;
@@ -375,7 +376,7 @@ int compareResults(size_t batchSize, std::vector<std::string>& labels, std::vect
   return 0;
 }
 
-void compareAsyncResults(int64_t ndx, const Ort::Value* cpuValue, const Ort::Value* etValue) {
+int compareAsyncResults(int64_t ndx, const Ort::Value* cpuValue, const Ort::Value* etValue) {
 
   std::vector<std::vector<std::pair<size_t, float>>> cpuLabel(1, std::vector<std::pair<size_t, float>>(1000));
   std::vector<std::vector<std::pair<size_t, float>>> etLabel(1, std::vector<std::pair<size_t, float>>(1000));
@@ -383,6 +384,7 @@ void compareAsyncResults(int64_t ndx, const Ort::Value* cpuValue, const Ort::Val
   sortResults(1, *cpuValue, cpuLabel);
   sortResults(1, *etValue, etLabel);
 
+  bool success = true;
   if (cpuLabel[0][0].first == etLabel[0][0].first) {
     INFO("Inferences " << ndx << " Matches between CPU and EtProvider in async run.");
   } else {
@@ -390,10 +392,12 @@ void compareAsyncResults(int64_t ndx, const Ort::Value* cpuValue, const Ort::Val
     INFO("Inference " << ndx << " NOT MATCHES between CPU and EtProvider in async run.");
     INFO("CPU " << cpuLabel[0][0].first << " ET prov " << etLabel[0][0].first);
     INFO("*********************************************************************");
+    success = false;
   }
 
   cpuLabel.clear();
   etLabel.clear();
+  return success;
 }
 
 void AsyncCallback(void* userData, [[maybe_unused]] OrtValue** outputs, [[maybe_unused]] size_t numOutputs,
@@ -418,9 +422,13 @@ void AsyncCallbackEt(void* userData, [[maybe_unused]] OrtValue** outputs, [[mayb
   Ort::Status status(statusPtr);
   std::unique_ptr<userDataHelper> userDataResources(reinterpret_cast<userDataHelper*>(userData));
 
+  bool results_match = true;
   if (status.IsOK()) {
-    compareAsyncResults(userDataResources->position, userDataResources->cpuOuts->data(),
-                        userDataResources->outs.data());
+    results_match = compareAsyncResults(userDataResources->position, userDataResources->cpuOuts->data(),
+                                        userDataResources->outs.data());
+  }
+  if (!status.IsOK() || !results_match) {
+    all_async_runs_successtul = false;
   }
 
   atomicTotalAsyncCallsEt++;
@@ -512,6 +520,7 @@ int main(int argc, char** argv) {
 
   size_t inputNodeSize = inputNodeDims[0] * inputNodeDims[1] * inputNodeDims[2] * inputNodeDims[3];
 
+  int result = 0;
   if (FLAGS_asyncMode) {
 
     VERBOSE("RESNET Async execution start.");
@@ -603,6 +612,9 @@ int main(int argc, char** argv) {
         compareAsyncResults(i, outputTensorPool[i].data(), outputTensorPoolEt[i].data());
       }
     }
+    if (!all_async_runs_successtul) {
+      result = -1;
+    }
   } else {
 
     std::vector<size_t> inputSizes;
@@ -676,10 +688,10 @@ int main(int argc, char** argv) {
     INFO("**************************************************");
     showResults(batchSize, imgName, fileRawPixels, labels, outputTensorEt);
 
-    compareResults(batchSize, labels, outputTensor, outputTensorEt);
+    result = compareResults(batchSize, labels, outputTensor, outputTensorEt);
   }
 
   VERBOSE("RESNET execution ends.");
 
-  return 0;
+  return result;
 }
