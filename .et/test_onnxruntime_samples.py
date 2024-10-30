@@ -1,6 +1,6 @@
 import os
 import pytest
-import itertools
+import shutil
 
 from run_wrapper import run
 
@@ -84,6 +84,18 @@ def python_module_req(request):
             else:
                 print(f"Source directory does not exist: {symlink_src}")
 
+@pytest.fixture(scope="session")
+def generate_squad_datasets(request):
+    """This fixture will generate datasets required for bert"""
+    seq_len = 128
+    models = ["bert", "albert", "distilbert"]
+    for model in models:
+        output_dir = f"DownloadArtifactory/input_tensors/{model}_squad_{seq_len}"
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+        run(f"artifacts/squad-dataset-to-input-tensor.py --model {model} --seq-length {seq_len} --batch-size 1 --output-dir {output_dir} --file DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json")
+
+
 def run_cxx_sample(request, cmd, should_succeed=True):
     result = run(cmd, output_path='tests/' + request.node.name)
     if should_succeed:
@@ -103,6 +115,7 @@ def run_cxx_sample(request, cmd, should_succeed=True):
 def run_py_sample(request, test_family, test_module,
                   test_model=None, num_tokens=None, batch=None, launches=None, run_mode=None,
                   with_tracing=None, with_warmup=None, with_performance=None, with_input=None,
+                  bert_variant=None,
                   should_succeed=True):
     if test_model is not None:  # llm(s)
         m_param = f'-m DownloadArtifactory/models/{test_model}/model.onnx'
@@ -118,10 +131,11 @@ def run_py_sample(request, test_family, test_module,
     launches_param = f'--launches {launches}' if launches is not None else ''
     performance_param = f'--performance' if with_performance else ''
     input_param = f'-i {with_input}' if with_input else ''
+    bert_variant_param = f"--bert-variant {bert_variant}" if bert_variant else ''
     artifacts_param = "--artifacts DownloadArtifactory" if test_model is None else ""
     result = run(
         f"python3 models/{test_family}/python/{test_module} "
-        f"{m_param} {t_param} {num_tokens_param} {warmup_param} {tracing_param} {batch_param} {launches_param} {performance_param} {input_param}"
+        f"{m_param} {t_param} {num_tokens_param} {warmup_param} {tracing_param} {batch_param} {launches_param} {performance_param} {input_param} {bert_variant_param} "
         f"{artifacts_param}",
         output_path='tests/' + request.node.name
     )
@@ -221,7 +235,8 @@ class TestImageClassifiersPython:
     @pytest.mark.parametrize('launches', test_launches)
     @pytest.mark.parametrize('run_mode', ["sync", "async"])
     @pytest.mark.parametrize('with_tracing', [True, False], ids=["with_tracing","without_tracing"])
-    def test_vgg19(self, batch, launches, run_mode, with_tracing, with_warmup, model_flavor, request):
+    @pytest.mark.parametrize('with_warmup', [True, False], ids=["with_warmup","without_warmup"])
+    def test_vgg19(self, batch, launches, run_mode, with_tracing, with_warmup, request):
         """Test vgg16.py & vgg19.py"""
         run_py_sample(request,
                       self.family, f"vgg19.py",
@@ -255,6 +270,11 @@ class TestImageClassifiersPython:
 class TestLanguageModelsPython:
     family = "language-model"
     test_num_tokens = [10, pytest.param(30, marks=pytest.mark.long)]
+
+    @pytest.mark.parametrize('bert_variant', ["bert", "bert-large", "albert", "distilbert"])
+    def test_bert(self, bert_variant, generate_squad_datasets, request):
+        """Test bert.py"""
+        run_py_sample(request, self.family, "bert.py", bert_variant=bert_variant)
 
     test_models = [
         'vicuna-1.5-7b-kvc-int4',
