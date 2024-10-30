@@ -202,13 +202,13 @@ data:
 
     albert-s128-fp32-onnx:
       servers:
-      - path: sw-ci-inputs/models/albert_128_pth_to_onnx/1
+      - path: sw-ci-inputs/models/albert-s128-fp32-onnx
         server: hg_face
       version: 1
 
     distilbert-s128-fp32-onnx:
       servers:
-      - path: sw-ci-inputs/models/distilbert_128_pth_to_onnx/1
+      - path: sw-ci-inputs/models/distilbert-s128-fp32-onnx
         server: hg_face
       version: 1
 
@@ -242,7 +242,7 @@ data:
 
     mistral-7b-kvc-fp16-onnx:
       servers:
-      - path: sw-ci-inputs/models/mistral-7b-kvc-fp16
+      - path: sw-ci-inputs/models/mistral-7b-kvc-fp16-onnx6
         server: hg_face
       version: 3
 
@@ -260,7 +260,7 @@ data:
 
     vicuna-7b-v.1.5-AWQ-int4-onnx:
       servers:
-      - path: sw-ci-inputs/models/vicuna-1.5-7b-int4
+      - path: sw-ci-inputs/models/vicuna-7b-v.1.5-AWQ-int4-onnx
         server: hg_face
       version: 1
 
@@ -272,25 +272,25 @@ data:
 
     mistral-7b-AWQ-int4-onnx:
       servers:
-      - path: sw-ci-inputs/models/mistral-7b-int4
+      - path: sw-ci-inputs/models/mistral-7b-AWQ-int4-onnx
         server: hg_face
       version: 2
 
     mistral-7b-kvc-AWQ-int4-onnx:
       servers:
-      - path: sw-ci-inputs/models/mistral-7b-kvc-int4
+      - path: sw-ci-inputs/models/mistral-7b-kvc-AWQ-int4-onnx
         server: hg_face
       version: 3
 
     llava-1.5-7b-fp16-onnx:
       servers:
-      - path: sw-ci-inputs/models/llava-1.5-7b-fp16
+      - path: sw-ci-inputs/models/llava-1.5-7b-fp16-onnx
         server: hg_face
       version: 2
 
     llava-1.5-7b-kvc-fp16-onnx:
       servers:
-      - path: sw-ci-inputs/models/llava-1.5-7b-kvc-fp16
+      - path: sw-ci-inputs/models/llava-1.5-7b-kvc-fp16-onnx
         server: hg_face
       version: 1
 
@@ -327,7 +327,7 @@ data:
 
     openjourney-fp16-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/openjourney-fp16
+      - path: sw-ci-inputs/models/openjourney-fp16-onnx
         server: hg_face
       version: 1
 
