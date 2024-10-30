@@ -7,20 +7,20 @@ from transformers import AutoTokenizer, AutoProcessor
 from scipy.special import softmax
 import onnx
 import numpy as np
-
+import math
 import argparse
 import copy
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import logging
 from pathlib import Path
+from difflib import SequenceMatcher
 import sys
 import os
 
 # Import utils.py
 sys.path.append(Path(__file__).resolve().parent.parent.parent.as_posix())
 from common import utils
-
 
 class PathValidationAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -424,6 +424,23 @@ def print_llm_inference_results(label : str, comp_time : float, inf_time : float
     for i in range(len(answers)):
         print(f'    Question and answer[{i}]: {answers[i]}')
 
+def compare_results(perplexity_cpu, perplexity_etglow, answers_cpu : [str], answers_etglow : [str]):
+    perplexity_tolerance = 0.05  # Define a relative tolerance for perplexity comparison
+    similarity_threshold = 0.9  # Set a threshold for answer similarity
+
+    if not math.isclose(perplexity_cpu, perplexity_etglow, rel_tol=perplexity_tolerance):
+        # preplexities should be close
+        raise ValueError(f"Perplexity scores differ significantly: CPU = {perplexity_cpu}, ETGlow = {perplexity_etglow}. "
+                         f"Difference exceeds tolerance of {perplexity_tolerance*100}%.")
+
+    for i, (answer_cpu, answer_etglow) in enumerate(zip(answers_cpu, answers_etglow)):
+        # Calculate similarity ratio using SequenceMatcher
+        similarity_ratio = SequenceMatcher(None, answer_cpu, answer_etglow).ratio()
+        if similarity_ratio < similarity_threshold:
+            raise ValueError(f"Answer {i+1} differs significantly between CPU and ETGlow. "
+                             f"Similarity ratio: {similarity_ratio:.4f} (Threshold: {similarity_threshold}).\n"
+                             f"CPU Answer: {answer_cpu}\nETGlow Answer: {answer_etglow}")
+
 
 def main():
     args = parse_arguments()
@@ -498,6 +515,7 @@ def main():
 
     print_llm_inference_results('ETGlow EP results', etsoc_comp_time, inf_time_etsoc, perplexity_etglow, answers_etglow,  args.batch * args.generate_tokens)
 
+    compare_results(perplexity_cpu, perplexity_etglow, answers_cpu, answers_etglow)
 
 if __name__ == "__main__":
     main()

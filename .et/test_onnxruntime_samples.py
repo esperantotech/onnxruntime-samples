@@ -290,6 +290,9 @@ class TestLanguageModelsPython:
     @pytest.mark.parametrize('model', test_models)
     def test_llm_kvc(self, model, num_tokens, batch, with_tracing, request):
         """Test llm-kvc.py"""
+        if "vicuna" in model and batch > 1:
+            pytest.xfail("vicuna with batch!=1 is known to crash")
+
         run_py_sample(request,
                       self.family, "llm-kvc.py",
                       test_model=model,
