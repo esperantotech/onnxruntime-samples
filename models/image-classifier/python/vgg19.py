@@ -25,7 +25,6 @@ def get_provider_options(args) -> dict:
 def main(argv: Optional[Sequence[str]] = None):
     """Launch vgg19 onnx model on cpu an etglow and compare."""
     parser = utils.get_common_arg_parser()
-    parser = utils.get_img_classifier_arg_parser(parser)    
     args = parser.parse_args(argv)
     
     batch = args.batch

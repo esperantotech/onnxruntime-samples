@@ -29,8 +29,6 @@ def get_provider_options(args):
 def extra_arguments(parser):
     parser.add_argument("-i", '--image', type = str, default = './doge.jpg',
                         help = 'Image to analyze')
-    parser.add_argument("-p", '--prompt', type = str, default = '',
-                        help = 'Query on the given image')
     parser.add_argument("-n", '--new-tokens', type = int, default = 10,
                         help = 'Number of new tokes to generate')
 
@@ -174,7 +172,6 @@ def run_llava(args, execution_provider):
     artifacts = Path(args.artifacts)
     onnx_model_path = artifacts / "models/llava-1.5-7b-fp16/"
     times = [0.0,0.0]
-    prompt = args.prompt
     image_path = Path(args.image)
     image = Image.open(image_path).convert('RGB')
 

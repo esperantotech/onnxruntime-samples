@@ -133,17 +133,15 @@ build:sonarqube-check:
         # image-classifier
         python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory
         python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog
+        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 2
         python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 5
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --launches 2
         if [ $DEVICE_TYPE == "silicon" ]; then
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 3_zeb --launches 2 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 2 --mode async
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 5 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --launches 2 --batch 5
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 2 --batch 5
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 10 --batch 3
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --image 2_dog --launches 2 --batch 5 --mode async
+          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 2 --batch 5 --mode async
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 10 --batch 3 --mode async
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --batch 100
           python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 1000 --batch 5

@@ -44,7 +44,7 @@ def parse_arguments():
                         help = 'If used, the model does not have the context extension in its ONNX')
     parser.add_argument("-g", '--generate-tokens', type = int, default = 0,
                         help = 'Total sequence length for the run')
-    parser.add_argument('--enable_tracing', action = 'store_true', default = False,
+    parser.add_argument('--enable-tracing', action = 'store_true', default = False,
                         help = 'Enable onnxruntime profiling and neuralizer traces')
     parser.add_argument('--verbose', action = 'store_true', default = False,
                         help = 'Enable onnxruntime logs')

@@ -14,7 +14,7 @@ def check_positive(value):
         raise Exception(f'{value} is not an integer.')
     return value
 
-def get_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
+def get_arg_parser() -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument("-a", "--artifacts", default = "../../../DownloadArtifactory")
     parser.add_argument("-v", "--verbose", action = "store_true",

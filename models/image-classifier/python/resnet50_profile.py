@@ -25,7 +25,6 @@ def get_provider_options(args) -> dict:
 def main(argv: Optional[Sequence[str]] = None):
     """Launch RESNET50 onnx model on cpu and etglow providers and compare results."""
     parser = utils.get_common_arg_parser()
-    parser = utils.get_img_classifier_arg_parser(parser)   
     args = parser.parse_args(argv)
 
     # Paths

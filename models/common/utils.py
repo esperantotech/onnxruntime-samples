@@ -309,7 +309,7 @@ def check_positive(value):
         raise Exception(f'{value} is not an integer.')
     return value
 
-def get_common_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
+def get_common_arg_parser() -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument("-a", "--artifacts", default="../../../DownloadArtifactory", 
                         type=Path)
@@ -324,23 +324,14 @@ def get_common_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParse
                         type = check_positive, default=1)
     parser.add_argument("-w", "--warm-up", action = 'store_true',
                         help='Skip first session run for getting accurate measures on run session')
-    parser.add_argument("-d", "--delete-tensor",
-                        help = "remove tensor once run have been done. Only in async mode",
-                        type = bool, default=False)
     parser.add_argument("-t", "--enable-tracing", action='store_true',
                         help = 'Enable onnxruntime profiling and neuralizer traces')
     parser.add_argument("-v", "--verbose",
                         help = "It shows help info messages",
                         type = bool, default=False)
     return parser
-    
+
 def extra_arguments(parser : ArgumentParser) -> ArgumentParser:
     parser.add_argument("--fp16", action = 'store_true',
                         help = 'Force the use of 16-bit floating point values when true')
-    return parser
-
-def get_img_classifier_arg_parser(parser : ArgumentParser) -> ArgumentParser:
-    parser.add_argument("-i", "--image", 
-                        help = "specify the image to do batch or/and inference", 
-                        type = str, default="")
     return parser
