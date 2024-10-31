@@ -75,10 +75,10 @@ def main(argv: Optional[Sequence[str]] = None):
         modelname = 'bert_large_onnx'
         tensorspath = artifacts_path / f'input_tensors/bert_squad_128/data'
     elif args.bert_variant == 'albert':
-        modelname = 'albert_128_pth_to_onnx'
+        modelname = 'albert-s128-fp32-onnx'
         tensorspath = artifacts_path / f'input_tensors/albert_squad_128/data'
     elif args.bert_variant == 'distilbert':
-        modelname = 'distilbert_128_pth_to_onnx'
+        modelname = 'distilbert-s128-fp32-onnx'
         tensorspath = artifacts_path / f'input_tensors/distilbert_squad_128/data'
     else:
         print(f'Model {args.bert_variant} is invalid.')
