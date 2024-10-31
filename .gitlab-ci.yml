@@ -34,10 +34,33 @@ variables:
 
 # Only run job in these cases:
 # - if there is a MR open
-.development_job:
+.development:
   rules:
-    - &development_job_rule
+    - &development_rule
       if: ($CI_PIPELINE_SOURCE == "merge_request_event") && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH)
+
+# Only run job in these cases:
+# - if it's a tag pipeline
+# - if it's a nightly pipeline
+# - if there is a commit pushed or merged to the default branch (pre-release)
+# - if there is a MR open (pre-release, unstable)
+.release_or_development:
+  rules:
+    - if: $CI_COMMIT_TAG
+      allow_failure: true
+      variables:
+        PYTEST_MARKER_LONG: ""
+        TIMEOUT: 6h
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      allow_failure: false
+      variables:
+        PYTEST_MARKER_LONG: ""
+        TIMEOUT: 6h
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event"
+      allow_failure: false
+      variables:
+        PYTEST_MARKER_LONG: "and not long"
+        TIMEOUT: 2h
 
 clang-format:
   extends:
@@ -46,7 +69,7 @@ clang-format:
   image: '${ET_SW_DEVELOP_DOCKER_IMAGE}'
   stage: smoke
   rules:
-    - *development_job_rule
+    - !reference [.development, rules]
   variables:
     CMD_SCRIPT: |
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
@@ -61,12 +84,7 @@ build:sonarqube-check:
   image: '${ET_SW_DEVELOP_DOCKER_IMAGE}'
   needs: []
   rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event") && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH)
-      allow_failure: false # TODO: change to 'false' once analysis are verified correct & stable
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      allow_failure: true
-    - if: $CI_COMMIT_TAG
-      allow_failure: true
+    - !reference [.release_or_development, rules]
   script:
     - cmake -S models/image-classifier/c++ -B .ci/sonarqube/build -DCMAKE_TOOLCHAIN_FILE=${ET_SDK_HOME}/.builds/host/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja
     - cp ${CI_PROJECT_DIR}/.ci/sonarqube/build/compile_commands.json .
@@ -86,6 +104,8 @@ build:sonarqube-check:
     - silicon
     - 1-card-silicon
     - mv-gb-swci01
+  rules:
+    - !reference [.release_or_development, rules]
   variables:
     GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
     CMD_SETUP_EXTRA_DEPS: |
@@ -103,39 +123,31 @@ build:sonarqube-check:
     paths:
       - tests/
 
-tests:pytest:image-classification:cxx:
+tests:image-classification:cxx:
   extends:
     - .pod_large
     - .tests:silicon:common
   stage: test
-  rules:
-    - *development_job_rule
   variables:
-    TIMEOUT: 2h
     CMD_SCRIPT: |
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
-      pytest .et/test_onnxruntime_samples.py --verbose -m "cxx and ic"
+      pytest .et/test_onnxruntime_samples.py --verbose -m "cxx and ic $PYTEST_MARKER_LONG"
 
-tests:pytest:image-classification:python:
+tests:image-classification:python:
   extends:
     - .pod_large
     - .tests:silicon:common
   stage: test
-  rules:
-    - *development_job_rule
   variables:
-    TIMEOUT: 2h
     CMD_SCRIPT: |
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
-      pytest .et/test_onnxruntime_samples.py --verbose -m "python and ic"
+      pytest .et/test_onnxruntime_samples.py --verbose -m "python and ic $PYTEST_MARKER_LONG"
 
-tests:pytest:language-models:python:
+tests:language-models:python:
   extends:
     - .pod_large
     - .tests:silicon:common
   stage: test
-  rules:
-    - *development_job_rule
   parallel:
     matrix:
       - PYTEST_FILTER:
@@ -145,79 +157,17 @@ tests:pytest:language-models:python:
           - "vicuna"
           - "llava"
           - "whisper"
-          - "not bert and not llama3 and not mistral and not vicuna and not llava and not whisper"
   variables:
-    TIMEOUT: 2h
     CMD_SCRIPT: |
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
-      pytest .et/test_onnxruntime_samples.py --verbose -m "python and lm" -k $PYTEST_FILTER --collect-only
-      pytest .et/test_onnxruntime_samples.py --verbose -m "python and lm" -k $PYTEST_FILTER
+      pytest .et/test_onnxruntime_samples.py --verbose -m "python and lm $PYTEST_MARKER_LONG" -k $PYTEST_FILTER
 
-
-##################
-
-.tests:text-to-image:
+tests:t2i:python:
   extends:
     - .pod_large
-    - .template_job
+    - .tests:silicon:common
   stage: test
-  rules:
-    - *development_job_rule
   variables:
-    TEMP_DIR: temp
-    TIMEOUT: 120m
-    GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
-    CXX_SOURCE_PATH: models/text-to-image/c++
-    CXX_BUILD_PATH: models/text-to-image/c++/build
-    CMD_SETUP_EXTRA_DEPS: |
-      # Download models
-      if [ $API_TYPE == "C++" ]; then
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
-      fi
-      python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
-      python3 -m pip install opencv-python-headless~=4.10.0.84
-      artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
-
-      # Show current python packages installed
-      pip freeze
-
-    CMD_BUILD: | 
-      if [ $API_TYPE == "C++" ]; then
-        cmake -S ${CXX_SOURCE_PATH} -B ${CXX_BUILD_PATH} -DCMAKE_TOOLCHAIN_FILE="${ET_SDK_HOME}/.builds/host/conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -G Ninja
-        cmake --build ${CXX_BUILD_PATH}
-      fi
-
     CMD_SCRIPT: |
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
-
-      if [ $API_TYPE == "python" ]; then
-        if [ $DEVICE_TYPE == "silicon" ]; then
-          # OpenJourney create golden image with cpu
-          python3 models/text-to-image/python/openjourney.py --artifacts DownloadArtifactory -p "foggy lake under waterfall with full moon"
-
-          # Openjourney
-          python3 models/text-to-image/python/openjourney.py --artifacts DownloadArtifactory -s -p "foggy lake under waterfall with full moon" -d fp16
-          python3 models/text-to-image/python/testimages.py -i "foggylakeunderwaterfallwithfullmoon" -p fp16
-
-          python3 models/text-to-image/python/openjourney.py --artifacts DownloadArtifactory -s -p "foggy lake under waterfall with full moon"
-          python3 models/text-to-image/python/testimages.py -i "foggylakeunderwaterfallwithfullmoon" -p fp32
-
-        fi
-      fi
-
-
-tests:text-to-image:python:silicon:
-  extends:
-    - .tests:text-to-image
-  image:
-    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
-    entrypoint: [""]
-  variables:
-    DEVICE_TYPE: silicon
-    ORT_ETGLOW_DEVICE_TYPE: silicon
-    API_TYPE: python
-  tags:
-    - silicon
-    - 1-card-silicon
-    - mv-gb-swci01
+      pytest .et/test_onnxruntime_samples.py --verbose -m "python and t2i $PYTEST_MARKER_LONG"

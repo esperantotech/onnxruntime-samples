@@ -53,10 +53,14 @@ def run(command, output_path=None, env=None, timeout=3600):
     if output_path:
         output_path = clean_path(output_path)
         os.makedirs(output_path, exist_ok=True)
-        with open(os.path.join(output_path, 'stdout.txt'), 'w') as f:
+        import time
+        now = time.strftime("%Y%m%d-%H%M%S")
+        stdout = os.path.join(output_path, 'stdout-' + now + '.txt')
+        stderr = os.path.join(output_path, 'stderr-' + now + '.txt')
+        with open(stdout, 'w') as f:
             f.write(f"Executing command: {command}\n")
             f.write(result.stdout)
-        with open(os.path.join(output_path, 'stderr.txt'), 'w') as f:
+        with open(stderr, 'w') as f:
             f.write(result.stderr)
 
     return result

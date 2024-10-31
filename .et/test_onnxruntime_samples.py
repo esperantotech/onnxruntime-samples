@@ -114,7 +114,9 @@ def run_cxx_sample(request, cmd, should_succeed=True):
 
 def run_py_sample(request, test_family, test_module,
                   test_model=None, num_tokens=None, new_tokens=None, batch=None, launches=None, run_mode=None,
-                  with_tracing=None, with_warmup=None, with_input=None, bert_variant=None, fp16=None,
+                  with_tracing=None, with_warmup=None, with_input=None, with_output=None, with_golden=None,
+                  bert_variant=None, fp16=None, precision=None, provider=None,
+                  prompt=None, artifacts_dir=True,
                   should_succeed=True):
     if test_model is not None:  # llm(s)
         m_param = f'-m DownloadArtifactory/models/{test_model}/model.onnx'
@@ -130,13 +132,19 @@ def run_py_sample(request, test_family, test_module,
     batch_param = f'--batch {batch}' if batch is not None else ''
     launches_param = f'--launches {launches}' if launches is not None else ''
     input_param = f'-i {with_input}' if with_input else ''
+    output_param = f"-o {with_output}" if with_output else ''
+    golden_param = f"--golden {with_golden}" if with_golden else ''
     bert_variant_param = f"--bert-variant {bert_variant}" if bert_variant else ''
     fp16_param = f"--fp16" if fp16 else ''
-    artifacts_param = "--artifacts DownloadArtifactory" if test_model is None else ""
+    precision_param = f"--precision {precision}" if precision is not None else ''
+    provider_param = f"--provider {provider}" if provider is not None else ''
+    prompt_param = f"--prompt \"{prompt}\"" if prompt is not None else ''
+    artifacts_param = "--artifacts DownloadArtifactory" if artifacts_dir and test_model is None else ""
     result = run(
         f"python3 models/{test_family}/python/{test_module} "
         f"{m_param} {t_param} {num_tokens_param} {new_tokens_param} {warmup_param} {tracing_param} {batch_param} "
-        f"{launches_param} {input_param} {bert_variant_param} {fp16_param} "
+        f"{launches_param} {input_param} {output_param} {bert_variant_param} {fp16_param} {precision_param} "
+        f"{provider_param} {golden_param} {prompt_param} "
         f"{artifacts_param}",
         output_path='tests/' + request.node.name
     )
@@ -158,7 +166,7 @@ def run_py_sample(request, test_family, test_module,
 @pytest.mark.ic
 class TestImageClassifiersCxx:
     family = "image-classifier"
-    test_launches = [1, 1000, pytest.param(10000, marks=pytest.mark.long)]
+    test_launches = [1, 1000, 10000, pytest.param(100000, marks=pytest.mark.long)]
 
     @pytest.mark.parametrize("cxx_compile", ["image-classifier"], indirect=True)
     def test_mnist(self, cxx_compile, request):
@@ -193,7 +201,7 @@ class TestImageClassifiersCxx:
 @pytest.mark.ic
 class TestImageClassifiersPython:
     family = "image-classifier"
-    test_launches = [1, 10, pytest.param(100, marks=pytest.mark.long)]
+    test_launches = [1, 10, 100, pytest.param(1000, marks=pytest.mark.long)]
 
     @pytest.mark.parametrize('with_tracing', [True, False], ids=["with_tracing","without_tracing"])
     def test_mnist(self, with_tracing, request):
@@ -268,7 +276,7 @@ class TestImageClassifiersPython:
 @pytest.mark.lm
 class TestLanguageModelsPython:
     family = "language-model"
-    test_batch = [1, pytest.param(2, marks=pytest.mark.long), pytest.param(4, marks=pytest.mark.long)]
+    test_batch = [1, 2, pytest.param(4, marks=pytest.mark.long)]
     test_launches = [1, 10, pytest.param(100, marks=pytest.mark.long)]
 
     @pytest.mark.parametrize('fp16', [True, False], ids=["fp16","fp32"])
@@ -312,7 +320,7 @@ class TestLanguageModelsPython:
     @pytest.mark.parametrize('with_tracing', [True, False], ids=["with_tracing","without_tracing"])
     @pytest.mark.parametrize('num_tokens', test_num_tokens)
     def test_whisper_kvc(self, input, num_tokens, with_tracing, request):
-        """Test llava.py"""
+        """Test whisper-kvc.py"""
         run_py_sample(request,
                       self.family, "whisper-kvc.py",
                       new_tokens=num_tokens,
@@ -329,3 +337,29 @@ class TestLanguageModelsPython:
                       new_tokens=num_tokens,
                       with_tracing=with_tracing,
                       with_input=f"artifacts/{input}")
+
+@pytest.mark.python
+@pytest.mark.t2i
+class TestText2ImageModelsPython:
+    family = "text-to-image"
+
+    @pytest.mark.parametrize('precision', ["fp32", "fp16"])
+    def test_openjourney(self, precision, request):
+        """Test openjourney.py"""
+        golden_cpu = f"golden_image_cpu_{precision}.png"
+        image_et = f"test_image_etglow_{precision}.png"
+        run_py_sample(request, self.family, "openjourney.py",
+                      prompt="foggy lake under waterfall with full moon",
+                      precision=precision,
+                      provider="cpu",
+                      with_output=golden_cpu)
+        run_py_sample(request, self.family, "openjourney.py",
+                      prompt="foggy lake under waterfall with full moon",
+                      precision=precision,
+                      provider="etglow",
+                      with_output=image_et)
+        run_py_sample(request, self.family, "testimages.py",
+                      precision=precision,
+                      with_input=image_et,
+                      with_golden=golden_cpu,
+                      artifacts_dir=False)

@@ -44,7 +44,7 @@ def txt_clip(model : Path, args : ArgumentParser, tokenizer : any) -> any:
         "etglow_onnx_shape_params": f'batch={batch_size};sequence={tokenizer.model_max_length}'
     }
 
-    if (args.silicon):
+    if args.provider == "etglow":
         session = ort.InferenceSession(model, sess_options, providers = ['EtGlowExecutionProvider'], provider_options = [poptions_txt_clip])
     else:
         session = ort.InferenceSession(model)    
@@ -93,7 +93,7 @@ def unet(model : Path, args : ArgumentParser, tokenizer : any, height : int, wid
         "etglow_onnx_shape_params": f'batch={batch_size*2};channels=4;height={height//8};width={width//8};sequence={tokenizer.model_max_length}'
     }    
 
-    if (args.silicon):
+    if args.provider == "etglow":
         session = ort.InferenceSession(model, sess_options, providers = ['EtGlowExecutionProvider'], provider_options = [poptions_unet])
     else:
         session = ort.InferenceSession(model)
@@ -121,7 +121,7 @@ def vae_decode(model : Path, args : ArgumentParser, height : int, width : int) -
         "etglow_onnx_shape_params": f'batch={batch_size};channels=4;height={height//8};width={width//8};channels_image=3;height_image={height};width_image={width}'
     }
 
-    if (args.silicon):
+    if args.provider == "etglow":
         session =  ort.InferenceSession(model, sess_options, providers = ['EtGlowExecutionProvider'], provider_options = [poptions_vae_decode])
     else:
         session = ort.InferenceSession(model)
@@ -131,11 +131,12 @@ def vae_decode(model : Path, args : ArgumentParser, height : int, width : int) -
 def main(argv: Optional[Sequence[str]] = None):
     """Launch Openjouney text-to-image model."""
     parser = txt2img.get_arg_parser()
+    parser.add_argument("-o", "--output", default="image.png", help="Output file image.")
     args = parser.parse_args(argv)
 
     artifacts_path = Path(args.artifacts)
 
-    model_name = "openjourney_onnx_fp32_aws" if args.datatype == "fp32" else 'openjourney_onnx_fp16_aws'
+    model_name = "openjourney_onnx_fp32_aws" if args.precision == "fp32" else 'openjourney_onnx_fp16_aws'
 
     submodel_name = ['text_encoder', 'unet', 'vae_decoder']
     model_txt_clip_path = artifacts_path / f'models/{model_name}/{submodel_name[0]}/model.onnx'
@@ -162,7 +163,7 @@ def main(argv: Optional[Sequence[str]] = None):
     scheduler.set_timesteps(num_inference_steps)
     latents = latents * scheduler.init_noise_sigma
 
-    if (args.datatype == "fp16"):
+    if args.precision == "fp16":
         text_embeddings = text_embeddings.numpy().astype(np.float16)
     else:
         text_embeddings = text_embeddings.numpy()
@@ -174,7 +175,7 @@ def main(argv: Optional[Sequence[str]] = None):
         latent_model_input = torch.cat([latents] * 2)
         latent_model_input = scheduler.scale_model_input(latent_model_input, timestep = t)
 
-        if (args.datatype == "fp16"):
+        if args.precision == "fp16":
             latent_model_input = latent_model_input.numpy().astype(np.float16)
         else:
             latent_model_input = latent_model_input.numpy()
@@ -194,7 +195,7 @@ def main(argv: Optional[Sequence[str]] = None):
     #scale and decode the image latents with vae
     latents = 1 / 0.18215 * latents
 
-    if (args.datatype == "fp16"):
+    if args.precision == "fp16":
         latents = latents.numpy().astype(np.float16)
     else:
         latents = latents.numpy()
@@ -205,7 +206,7 @@ def main(argv: Optional[Sequence[str]] = None):
         image = run_vae_decode(session_vae_decode, latents)
 
     #Here is assuming batch_size 1 
-    if (args.datatype == "fp16"):
+    if args.precision == "fp16":
         image = image[0].astype(np.float32)
     else:
         image = image[0]
@@ -215,11 +216,7 @@ def main(argv: Optional[Sequence[str]] = None):
     images = (image * 255).round().astype("uint8")
     pil_images = [Image.fromarray(image) for image in images]
 
-    if (args.silicon):
-        pil_images[0].save(f'{prompt[0].replace(" ", "")}_{args.datatype}.png')
-    else:
-        pil_images[0].save(f'{prompt[0].replace(" ", "")}.png')
-
+    pil_images[0].save(args.output)
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
