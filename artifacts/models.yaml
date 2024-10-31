@@ -242,7 +242,7 @@ data:
 
     mistral-7b-kvc-fp16-onnx:
       servers:
-      - path: sw-ci-inputs/models/mistral-7b-kvc-fp16-onnx6
+      - path: sw-ci-inputs/models/mistral-7b-kvc-fp16-onnx
         server: hg_face
       version: 3
 
@@ -329,7 +329,7 @@ data:
       servers:
       - path: sw-ci-inputs/models/openjourney-fp16-onnx
         server: hg_face
-      version: 1
+      version: 3
 
     openjourney_onnx_fp32_aws:
       servers:
