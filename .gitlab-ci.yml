@@ -114,7 +114,6 @@ tests:pytest:image-classification:cxx:
     TIMEOUT: 2h
     CMD_SCRIPT: |
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
-      pytest .et/test_onnxruntime_samples.py --verbose -m "cxx and ic" --collect-only
       pytest .et/test_onnxruntime_samples.py --verbose -m "cxx and ic"
 
 tests:pytest:image-classification:python:
@@ -128,160 +127,34 @@ tests:pytest:image-classification:python:
     TIMEOUT: 2h
     CMD_SCRIPT: |
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
-      pytest .et/test_onnxruntime_samples.py --verbose -m "python and ic" --collect-only
       pytest .et/test_onnxruntime_samples.py --verbose -m "python and ic"
 
-tests:pytest:language-models:
+tests:pytest:language-models:python:
   extends:
     - .pod_large
     - .tests:silicon:common
   stage: test
   rules:
     - *development_job_rule
+  parallel:
+    matrix:
+      - PYTEST_FILTER:
+          - "bert"
+          - "llama3"
+          - "mistral"
+          - "vicuna"
+          - "llava"
+          - "whisper"
+          - "not bert and not llama3 and not mistral and not vicuna and not llava and not whisper"
   variables:
-    TIMEOUT: 4h
+    TIMEOUT: 2h
     CMD_SCRIPT: |
       source ${ET_SDK_HOME}/.builds/host/conanrun.sh
-      pytest .et/test_onnxruntime_samples.py --verbose -m "python and lm" --collect-only
-      pytest .et/test_onnxruntime_samples.py --verbose -m "python and lm"
+      pytest .et/test_onnxruntime_samples.py --verbose -m "python and lm" -k $PYTEST_FILTER --collect-only
+      pytest .et/test_onnxruntime_samples.py --verbose -m "python and lm" -k $PYTEST_FILTER
 
-.tests:image-classification:
-  extends:
-    - .pod_large
-    - .template_job
-  stage: test
-  rules:
-    - *development_job_rule
-  variables:
-    TEMP_DIR: temp
-    TIMEOUT: 60m
-    GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
-    CXX_SOURCE_PATH: models/image-classifier/c++
-    CXX_BUILD_PATH: models/image-classifier/c++/build
-    CMD_SETUP_EXTRA_DEPS: |
-      # Download models
-      if [ $API_TYPE == "C++" ]; then
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
-      fi
-      python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple      
-      python3 -m pip install opencv-python-headless~=4.10.0.84
-      artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
 
-      # Show current python packages installed
-      #pip freeze
-
-    CMD_BUILD: | 
-      if [ $API_TYPE == "C++" ]; then
-        cmake -S ${CXX_SOURCE_PATH} -B ${CXX_BUILD_PATH} -DCMAKE_TOOLCHAIN_FILE="${ET_SDK_HOME}/.builds/host/conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -G Ninja
-        cmake --build ${CXX_BUILD_PATH}
-      fi
-
-    CMD_SCRIPT: |
-      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
-
-      if [ $API_TYPE == "C++" ]; then
-        ./${CXX_BUILD_PATH}/mnist -artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory -verbose        
-        #It gets the first image at imagenet folder at DownloadArtifactory
-        ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --batchSize 1 --verbose
-        #Use the image given by user to be inferenced.
-        ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --batchSize 1 --image 1_cat --verbose
-        #The batch is composed with the image given by user.
-        ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --batchSize 10 --image 2_dog --verbose
-        #The batch is composed with the images in the DownloadArtifactory folder catching in alphabetical order until fill all batch,
-        #in case there aren't enough images, It comes back to the begin of the images listed until batch is filled.
-        ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --batchSize 10 --verbose
-        if [ $DEVICE_TYPE == "silicon" ]; then
-          #Resnet Async execution. Batch size is always 1 for each inferences execution in async mode. It rolls over the three images. cat, dog and zebra.
-          #It launches 1000 async inferences.
-          ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --asyncMode --verbose 
-          #It launches as many inferences as are setting in '--inferences'
-          ./${CXX_BUILD_PATH}/resnet --artifact_folder ${CI_PROJECT_DIR}/DownloadArtifactory --totalInferences 100 --asyncMode --verbose
-        fi
-      else
-        # image-classifier
-        python3 models/image-classifier/python/mnist.py --artifacts DownloadArtifactory
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 2
-        python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 5
-        if [ $DEVICE_TYPE == "silicon" ]; then
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 2 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 5 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 2 --batch 5
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 10 --batch 3
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 2 --batch 5 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 10 --batch 3 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --batch 100
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 1000 --batch 5
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --batch 100 --mode async
-          python3 models/image-classifier/python/resnet50.py --artifacts DownloadArtifactory --launches 1000 --batch 5 --mode async
-        fi
-        python3 models/image-classifier/python/mobilenet.py --artifacts DownloadArtifactory
-        python3 models/image-classifier/python/vgg16.py --artifacts DownloadArtifactory
-        python3 models/image-classifier/python/vgg19.py --artifacts DownloadArtifactory
-      fi
-
-.tests:language-model:
-  extends:
-    - .pod_large
-    - .template_job
-  stage: test
-  rules:
-    - *development_job_rule
-  variables:
-    TEMP_DIR: temp
-    TIMEOUT: 150m
-    GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
-    CXX_SOURCE_PATH: models/language-model/c++
-    CXX_BUILD_PATH: models/language-model/c++/build
-    CMD_SETUP_EXTRA_DEPS: |
-      # Download models
-      sudo apt-get update --fix-missing
-      sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
-
-      python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
-      python3 -m pip install opencv-python-headless~=4.10.0.84
-      artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
-
-      # Generate squad datasets
-      artifacts/squad-dataset-to-input-tensor.py --model bert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/bert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
-      artifacts/squad-dataset-to-input-tensor.py --model albert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/albert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
-      artifacts/squad-dataset-to-input-tensor.py --model distilbert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/distilbert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
-
-    CMD_BUILD: | 
-      if [ $API_TYPE == "C++" ]; then
-        cmake -S ${CXX_SOURCE_PATH} -B ${CXX_BUILD_PATH} -DCMAKE_TOOLCHAIN_FILE="${ET_SDK_HOME}/.builds/host/conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -G Ninja
-        cmake --build ${CXX_BUILD_PATH}
-      fi
-
-    CMD_SCRIPT: |
-      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
-
-      if [ $API_TYPE == "python" ]; then
-        # bert
-        python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory
-        python3 models/language-model/python/bert.py --bert-variant albert -a DownloadArtifactory
-        python3 models/language-model/python/bert.py --bert-variant bert-large -a DownloadArtifactory
-        python3 models/language-model/python/bert.py --bert-variant distilbert -a DownloadArtifactory        
-        
-        # llama3
-        python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/llama3-8b-instruct-kvc-int4/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/llama3 -g 10
-        python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/llama3-8b-instruct-kvc-fp16/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/llama3 -g 10
-        
-        # vicuna 1.5b
-        python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/vicuna-1.5-7b-kvc-int4/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/vicuna -g 10
-
-        # mistral 7b
-        python3 models/language-model/python/llm-kvc.py -m ${CI_PROJECT_DIR}/DownloadArtifactory/models/mistral-instruct-7b-kvc-fp16/model.onnx -t ${CI_PROJECT_DIR}/DownloadArtifactory/tokenizer/mistral -g 10
-
-        # llava
-        python3 models/language-model/python/llava.py -a DownloadArtifactory -i artifacts/doge.jpg
-
-        # whisper
-        python3 models/language-model/python/whisper-kvc.py -a DownloadArtifactory -i artifacts/1984.m4a
-
-      fi
+##################
 
 .tests:text-to-image:
   extends:
@@ -333,128 +206,10 @@ tests:pytest:language-models:
         fi
       fi
 
-.tests:performance:
-  extends:
-    - .pod_large
-    - .template_job
-  stage: test
-  rules:
-    - *development_job_rule
-  variables:
-    TEMP_DIR: temp
-    TIMEOUT: 100m
-    GLOG_minloglevel: 2
-    CMD_SETUP_EXTRA_DEPS: |
-      sudo apt-get update --fix-missing
-      sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
-
-      python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
-      python3 -m pip install opencv-python-headless~=4.10.0.84
-      artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
-
-      # Generate squad datasets
-      artifacts/squad-dataset-to-input-tensor.py --model bert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/bert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
-      artifacts/squad-dataset-to-input-tensor.py --model albert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/albert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
-      artifacts/squad-dataset-to-input-tensor.py --model distilbert --seq-length 128 --batch-size 1 --output-dir ${CI_PROJECT_DIR}/DownloadArtifactory/input_tensors/distilbert_squad_128 --file ${CI_PROJECT_DIR}/DownloadArtifactory/datasets/squadV1.1/data/squad-v1.1-dev.json
-
-    CMD_SCRIPT: |
-      source ${ET_SDK_HOME}/.builds/host/conanrun.sh
-      
-      python3 models/image-classifier/python/resnet50.py -a DownloadArtifactory --warm-up --launches 1000 --batch 1 --enable-tracing --mode async
-
-      python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory --enable-tracing --warm-up --launches 2
-      python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --mode async
-      python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --mode async
-      python3 models/language-model/python/bert.py --bert-variant bert-large -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --mode async
-      python3 models/language-model/python/bert.py --bert-variant bert-large -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --mode async
-
-      python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 1 --warm-up --mode async --fp16
-      python3 models/language-model/python/bert.py --bert-variant bert -a DownloadArtifactory --enable-tracing --launches 1000 --batch 4 --warm-up --mode async --fp16
-
-tests:image-classification:python:sw-sysemu:
-  extends:
-    - .tests:image-classification
-  image:
-    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
-  variables:
-    DEVICE_TYPE: sysemu   
-    ORT_ETGLOW_DEVICE_TYPE: sysemu
-    API_TYPE: python
-    TIMEOUT: 2h
-
-tests:image-classification:python:silicon:
-  extends:
-    - .tests:image-classification
-  image:
-    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
-    entrypoint: [""]
-  variables:
-    DEVICE_TYPE: silicon
-    ORT_ETGLOW_DEVICE_TYPE: silicon
-    API_TYPE: python
-  tags:
-    - silicon
-    - 1-card-silicon
-    - mv-gb-swci01
-
-tests:image-classification:c++:sw-sysemu:
-  extends:
-    - .tests:image-classification
-  image:
-    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
-  variables:
-    DEVICE_TYPE: sysemu
-    ORT_ETGLOW_DEVICE_TYPE: sysemu
-    API_TYPE: C++
-  
-tests:image-classification:c++:silicon:
-  extends:
-    - .tests:image-classification
-  image:
-    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
-    entrypoint: [""]
-  variables:
-    DEVICE_TYPE: silicon
-    ORT_ETGLOW_DEVICE_TYPE: silicon    
-    API_TYPE: C++
-  tags:
-    - silicon
-    - 1-card-silicon
-    - mv-gb-swci01
-
-tests:language-model:python:silicon:
-  extends:
-    - .tests:language-model
-  image:
-    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
-    entrypoint: [""]
-  variables:
-    DEVICE_TYPE: silicon
-    ORT_ETGLOW_DEVICE_TYPE: silicon
-    API_TYPE: python
-  tags:
-    - silicon
-    - 1-card-silicon
-    - mv-gb-swci01
 
 tests:text-to-image:python:silicon:
   extends:
     - .tests:text-to-image
-  image:
-    name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
-    entrypoint: [""]
-  variables:
-    DEVICE_TYPE: silicon
-    ORT_ETGLOW_DEVICE_TYPE: silicon
-    API_TYPE: python
-  tags:
-    - silicon
-    - 1-card-silicon
-    - mv-gb-swci01
-
-tests:performance:python:silicon:
-  extends:
-    - .tests:performance
   image:
     name: ${ET_SW_DEVELOP_DOCKER_IMAGE}
     entrypoint: [""]

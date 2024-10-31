@@ -113,9 +113,8 @@ def run_cxx_sample(request, cmd, should_succeed=True):
 
 
 def run_py_sample(request, test_family, test_module,
-                  test_model=None, num_tokens=None, batch=None, launches=None, run_mode=None,
-                  with_tracing=None, with_warmup=None, with_performance=None, with_input=None,
-                  bert_variant=None,
+                  test_model=None, num_tokens=None, new_tokens=None, batch=None, launches=None, run_mode=None,
+                  with_tracing=None, with_warmup=None, with_input=None, bert_variant=None, fp16=None,
                   should_succeed=True):
     if test_model is not None:  # llm(s)
         m_param = f'-m DownloadArtifactory/models/{test_model}/model.onnx'
@@ -124,18 +123,20 @@ def run_py_sample(request, test_family, test_module,
     else:
         m_param = ''
     t_param = f"--tokenizer DownloadArtifactory/tokenizer/{test_model.split('-')[0]}" if test_model is not None else ''
-    num_tokens_param = f'-g {num_tokens}' if num_tokens else ''
+    num_tokens_param = f'--generate-tokens {num_tokens}' if num_tokens else ''
+    new_tokens_param = f'--new-tokens {new_tokens}' if new_tokens else ''
     warmup_param = '--warm-up' if with_warmup else ''
     tracing_param = '--enable-tracing' if with_tracing else ''
     batch_param = f'--batch {batch}' if batch is not None else ''
     launches_param = f'--launches {launches}' if launches is not None else ''
-    performance_param = f'--performance' if with_performance else ''
     input_param = f'-i {with_input}' if with_input else ''
     bert_variant_param = f"--bert-variant {bert_variant}" if bert_variant else ''
+    fp16_param = f"--fp16" if fp16 else ''
     artifacts_param = "--artifacts DownloadArtifactory" if test_model is None else ""
     result = run(
         f"python3 models/{test_family}/python/{test_module} "
-        f"{m_param} {t_param} {num_tokens_param} {warmup_param} {tracing_param} {batch_param} {launches_param} {performance_param} {input_param} {bert_variant_param} "
+        f"{m_param} {t_param} {num_tokens_param} {new_tokens_param} {warmup_param} {tracing_param} {batch_param} "
+        f"{launches_param} {input_param} {bert_variant_param} {fp16_param} "
         f"{artifacts_param}",
         output_path='tests/' + request.node.name
     )
@@ -252,8 +253,7 @@ class TestImageClassifiersPython:
     @pytest.mark.parametrize('run_mode', ["sync", "async"])
     @pytest.mark.parametrize('with_tracing', [True, False], ids=["with_tracing","without_tracing"])
     @pytest.mark.parametrize('with_warmup', [True, False], ids=["with_warmup","without_warmup"])
-    @pytest.mark.parametrize('with_performance', [True, False], ids=["with_performance","without_performance"]) # mobilenet specific
-    def test_mobilenet(self, batch, launches, run_mode, with_tracing, with_warmup, with_performance, request):
+    def test_mobilenet(self, batch, launches, run_mode, with_tracing, with_warmup, request):
         """Test mobilenet.py"""
         run_py_sample(request,
                       self.family, "mobilenet.py",
@@ -261,28 +261,37 @@ class TestImageClassifiersPython:
                       launches=launches,
                       run_mode=run_mode,
                       with_tracing=with_tracing,
-                      with_warmup=with_warmup,
-                      with_performance=with_performance)
+                      with_warmup=with_warmup)
 
 
 @pytest.mark.python
 @pytest.mark.lm
 class TestLanguageModelsPython:
     family = "language-model"
-    test_num_tokens = [10, pytest.param(30, marks=pytest.mark.long)]
+    test_batch = [1, pytest.param(2, marks=pytest.mark.long), pytest.param(4, marks=pytest.mark.long)]
+    test_launches = [1, 10, pytest.param(100, marks=pytest.mark.long)]
 
+    @pytest.mark.parametrize('fp16', [True, False], ids=["fp16","fp32"])
+    @pytest.mark.parametrize('batch', test_batch, ids=["batch_1", "batch_2", "batch_4"])
+    @pytest.mark.parametrize('launches', test_launches)
+    @pytest.mark.parametrize('with_warmup', [True, False], ids=["with_warmup","without_warmup"])
     @pytest.mark.parametrize('bert_variant', ["bert", "bert-large", "albert", "distilbert"])
-    def test_bert(self, bert_variant, generate_squad_datasets, request):
+    def test_bert(self, batch, launches, fp16, with_warmup, bert_variant, generate_squad_datasets, request):
         """Test bert.py"""
-        run_py_sample(request, self.family, "bert.py", bert_variant=bert_variant)
+        run_py_sample(request, self.family, "bert.py",
+                      fp16=fp16,
+                      batch=batch,
+                      launches=launches,
+                      with_warmup=with_warmup,
+                      bert_variant=bert_variant)
 
+    test_num_tokens = [10, pytest.param(30, marks=pytest.mark.long)]
     test_models = [
         'vicuna-1.5-7b-kvc-int4',
         'mistral-instruct-7b-kvc-fp16',
         'llama3-8b-instruct-kvc-int4',
         pytest.param('llama3-8b-instruct-kvc-fp16', marks=pytest.mark.long)
     ]
-    test_batch = [1, pytest.param(2, marks=pytest.mark.long), pytest.param(4, marks=pytest.mark.long)]
 
     @pytest.mark.parametrize('with_tracing', [True, False], ids=["with_tracing","without_tracing"])
     @pytest.mark.parametrize('num_tokens', test_num_tokens)
@@ -292,7 +301,6 @@ class TestLanguageModelsPython:
         """Test llm-kvc.py"""
         if "vicuna" in model and batch > 1:
             pytest.xfail("vicuna with batch!=1 is known to crash")
-
         run_py_sample(request,
                       self.family, "llm-kvc.py",
                       test_model=model,
@@ -300,10 +308,24 @@ class TestLanguageModelsPython:
                       batch=batch,
                       with_tracing=with_tracing)
 
-    def test_llava(self, batch, with_tracing, request):
+    @pytest.mark.parametrize('input', ["1984.m4a"])
+    @pytest.mark.parametrize('with_tracing', [True, False], ids=["with_tracing","without_tracing"])
+    @pytest.mark.parametrize('num_tokens', test_num_tokens)
+    def test_whisper_kvc(self, input, num_tokens, with_tracing, request):
+        """Test llava.py"""
+        run_py_sample(request,
+                      self.family, "whisper-kvc.py",
+                      new_tokens=num_tokens,
+                      with_tracing=with_tracing,
+                      with_input=f"artifacts/{input}")
+
+    @pytest.mark.parametrize('input', ["doge.jpg"])
+    @pytest.mark.parametrize('with_tracing', [True, False], ids=["with_tracing","without_tracing"])
+    @pytest.mark.parametrize('num_tokens', test_num_tokens)
+    def test_llava(self, input, num_tokens, with_tracing, request):
         """Test llava.py"""
         run_py_sample(request,
                       self.family, "llava.py",
-                      batch=batch,
+                      new_tokens=num_tokens,
                       with_tracing=with_tracing,
-                      with_input="artifacts/doge.jpg")
+                      with_input=f"artifacts/{input}")

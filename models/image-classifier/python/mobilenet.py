@@ -25,7 +25,7 @@ def get_provider_options(args) -> dict:
 def main(argv: Optional[Sequence[str]] = None):
     """Launch mobilenet onnx model on cpu and etglow and compare results."""
     parser = utils.get_common_arg_parser()
-    parser.add_argument("--performance", action = 'store_true')
+    parser.add_argument("--skip-checks", action='store_false')
     args = parser.parse_args(argv)
     batch = args.batch
     num_launches = args.launches
@@ -59,7 +59,7 @@ def main(argv: Optional[Sequence[str]] = None):
     print(f'Executed {num_launches} inferences with batch {batch} in {et_total_time:.4f}s.')
     print(f'ET_provider Performance: {(num_launches*batch)/et_total_time:.4f} inf/sec')
 
-    if (not args.performance):
+    if not args.skip_checks:
         # Run cpu provider inferences
         sess_options.profile_file_prefix = f'{modelname}_cpu_inf_{num_launches}_batch_{batch}'
         session_cpu = ort.InferenceSession(modelpath, sess_options, providers=['CPUExecutionProvider'])
