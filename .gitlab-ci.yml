@@ -110,7 +110,7 @@ build:sonarqube-check:
     GLOG_minloglevel: 2 # Reduce Glow & Neuralizer verbosity
     CMD_SETUP_EXTRA_DEPS: |
       # Download models
-      if [ $API_TYPE == "C++" ]; then
+      if [ $$API_TYPE == "C++" ]; then
         sudo apt-get update
         sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
       fi
