@@ -150,7 +150,7 @@ def run_py_sample(request, test_family, test_module,
     )
     if should_succeed:
         if result.returncode != 0:
-            assert False, f"Execution failed with return code {result.returncode} failed"
+            assert False, f"Execution failed with return code {result.returncode} failed stdout {result.stdout} stderr {result.stderr}"
         else:
             print('Execution finished successfully')
     else:
