@@ -295,10 +295,10 @@ class TestLanguageModelsPython:
 
     test_num_tokens = [10, pytest.param(30, marks=pytest.mark.long)]
     test_models = [
-        'vicuna-1.5-7b-kvc-int4',
-        'mistral-instruct-7b-kvc-fp16',
-        'llama3-8b-instruct-kvc-int4',
-        pytest.param('llama3-8b-instruct-kvc-fp16', marks=pytest.mark.long)
+        'vicuna-7b-v1.5-kvc-AWQ-int4-onnx',
+        'mistral-7b-Instruct-v0.2-kvc-fp16-onnx ',
+        'llama3-8b-Instruct-kvc-AWQ-int4-onnx ',
+        pytest.param('llama3-8b-Instruct-kvc-fp16-onnx', marks=pytest.mark.long)
     ]
 
     @pytest.mark.parametrize('with_tracing', [True, False], ids=["with_tracing","without_tracing"])
