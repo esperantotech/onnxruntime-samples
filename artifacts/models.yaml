@@ -212,12 +212,10 @@ data:
         server: hg_face
       version: 1
 
-    llama3-8b-instruct-fp16:
+    llama3-8b-instruct-fp16-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/llama3-8b-instruct-fp16/1
-        server: aws_s3
-        wget_options: '-O - | tar xzf -'
-        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/llama3-8b-instruct-fp16/1.tar.gz'
+      - path: sw-ci-inputs/models/llama3-8b-instruct-fp16-onnx
+        server: hg_face
       version: 1
 
     llama3-8b-Instruct-kvc-fp16-onnx:
