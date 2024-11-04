@@ -115,7 +115,7 @@ build:sonarqube-check:
         sudo apt-get install -y ffmpeg libsm6 libxext6 --no-install-recommends
       fi
       sudo apt-get install -y git-lfs
-      git lfs install
+      git lfs update --force
       python3 -m pip install -r requirements.txt --extra-index-url https://sc-artifactory1.esperanto.ai/artifactory/api/pypi/pypi-virtual/simple
       python3 -m pip install opencv-python-headless~=4.10.0.84
       artifacts_mgr_client --inputfile artifacts/models.yaml --artifactpath ${CI_PROJECT_DIR}/DownloadArtifactory
