@@ -340,7 +340,7 @@ data:
 
     openjourney-fp32-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/openjourney-fp32-onnx
+      - path: sw-ci-inputs/models/openjourney-fp32-onnx
         server: hg_face
         version: 2
         files:
