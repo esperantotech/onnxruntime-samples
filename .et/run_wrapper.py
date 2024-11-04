@@ -49,6 +49,8 @@ def run(command, output_path=None, env=None, timeout=3600):
         result = e
         result.stdout = str(result.stdout, 'utf-8') if result.stdout is not None else ""
         result.stderr = str(result.stderr, 'utf-8') if result.stderr is not None else ""
+    except Exception as e:
+        print(f"message {e.message}")
 
     if output_path:
         output_path = clean_path(output_path)
