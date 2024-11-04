@@ -136,7 +136,7 @@ def main(argv: Optional[Sequence[str]] = None):
 
     artifacts_path = Path(args.artifacts)
 
-    model_name = "openjourney_onnx_fp32_aws" if args.precision == "fp32" else 'openjourney_onnx_fp16_aws'
+    model_name = "openjourney-fp32-onnx" if args.precision == "fp32" else 'openjourney-fp16-onnx'
 
     submodel_name = ['text_encoder', 'unet', 'vae_decoder']
     model_txt_clip_path = artifacts_path / f'models/{model_name}/{submodel_name[0]}/model.onnx'

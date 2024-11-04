@@ -232,12 +232,10 @@ data:
         server: hg_face
       version: 1
 
-    mistral-7b-fp16:
+    mistral-7b-fp16-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/mistral-7b-fp16/1
-        server: aws_s3
-        wget_options: '-O - | tar xzf -'
-        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/mistral-7b-fp16/1.tar.gz'
+      - path: sw-ci-inputs/models/mistral-7b-fp16
+        server: hg_face
       version: 1
 
     mistral-7b-kvc-fp16-onnx:
@@ -329,15 +327,22 @@ data:
       servers:
       - path: sw-ci-inputs/models/openjourney-fp16-onnx
         server: hg_face
-      version: 3
+        version: 3
+        files:
+          - src: text_encoder/*
+            dst: text_encoder/
+          - src: unet/*
+            dst: unet/
+          - src: vae_decoder/*
+            dst: vae_decoder/
+          - src: vae_encoder/*
+            dst: vae_encoder/
 
-    openjourney_onnx_fp32_aws:
+    openjourney-fp32-onnx:
       servers:
-      - rel_local_dir: sw-ci-inputs/models/openjourney/2
-        server: aws_s3
-        wget_options: '-O - | tar xzf -'
-        path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/models/openjourney/2.tar.gz'
-        version: 1
+      - rel_local_dir: sw-ci-inputs/models/openjourney-fp32-onnx
+        server: hg_face
+        version: 2
         files:
           - src: text_encoder/*
             dst: text_encoder/
