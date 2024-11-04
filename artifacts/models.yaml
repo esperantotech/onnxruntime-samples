@@ -234,7 +234,7 @@ data:
 
     mistral-7b-fp16-onnx:
       servers:
-      - path: sw-ci-inputs/models/mistral-7b-fp16
+      - path: sw-ci-inputs/models/mistral-7b-fp16-onnx
         server: hg_face
       version: 1
 
