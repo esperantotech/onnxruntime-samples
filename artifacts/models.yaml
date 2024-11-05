@@ -282,13 +282,31 @@ data:
       servers:
       - path: sw-ci-inputs/models/llava-1.5-7b-fp16-onnx
         server: hg_face
-      version: 2
+        version: 2
+        files:
+          - src: llava/clip/*
+            dst: clip/
+          - src: llava/embeds/*
+            dst: embeds/
+          - src: llava/llama/*
+            dst: llama/
+          - src: llava/mmp/*
+            dst: mmp/
 
     llava-1.5-7b-kvc-fp16-onnx:
       servers:
       - path: sw-ci-inputs/models/llava-1.5-7b-kvc-fp16-onnx
         server: hg_face
-      version: 1
+        version: 1
+        files:
+          - src: llava/clip/*
+            dst: clip/
+          - src: llava/embeds/*
+            dst: embeds/
+          - src: llava/llama/*
+            dst: llama/
+          - src: llava/mmp/*
+            dst: mmp/
 
     whisper-large-v2:
       servers:
