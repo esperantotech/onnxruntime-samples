@@ -445,7 +445,7 @@ def compare_results(perplexity_cpu, perplexity_etglow, answers_cpu : [str], answ
 def main():
     args = parse_arguments()
     logging.basicConfig(level = logging.INFO)
-  
+    logger.info(f"args {args}")
     # Paths
     model_path = args.model_path
     context_len = get_context_size(args)

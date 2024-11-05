@@ -296,8 +296,8 @@ class TestLanguageModelsPython:
     test_num_tokens = [10, pytest.param(30, marks=pytest.mark.long)]
     test_models = [
         'vicuna-7b-v1.5-kvc-AWQ-int4-onnx',
-        'mistral-7b-Instruct-v0.2-kvc-fp16-onnx ',
-        'llama3-8b-Instruct-kvc-AWQ-int4-onnx ',
+        'mistral-7b-Instruct-v0.2-kvc-fp16-onnx',
+        'llama3-8b-Instruct-kvc-AWQ-int4-onnx',
         pytest.param('llama3-8b-Instruct-kvc-fp16-onnx', marks=pytest.mark.long)
     ]
 
