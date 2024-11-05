@@ -170,7 +170,7 @@ def run_mmp(proj_model : Path, outputs_clip, execution_provider, times, session_
 
 def run_llava(args, execution_provider):
     artifacts = Path(args.artifacts)
-    onnx_model_path = artifacts / "models/llava-1.5-7b-fp16/"
+    onnx_model_path = artifacts / "models/llava-1.5-7b-fp16-onnx/"
     times = [0.0,0.0]
     image_path = Path(args.image)
     image = Image.open(image_path).convert('RGB')
