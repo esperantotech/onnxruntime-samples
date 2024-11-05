@@ -284,13 +284,13 @@ data:
         server: hg_face
         version: 2
         files:
-          - src: llava/clip/*
+          - src: clip/*
             dst: clip/
-          - src: llava/embeds/*
+          - src: embeds/*
             dst: embeds/
-          - src: llava/llama/*
+          - src: llama/*
             dst: llama/
-          - src: llava/mmp/*
+          - src: mmp/*
             dst: mmp/
 
     llava-1.5-7b-kvc-fp16-onnx:
@@ -299,13 +299,13 @@ data:
         server: hg_face
         version: 1
         files:
-          - src: llava/clip/*
+          - src: clip/*
             dst: clip/
-          - src: llava/embeds/*
+          - src: embeds/*
             dst: embeds/
-          - src: llava/llama/*
+          - src: llama/*
             dst: llama/
-          - src: llava/mmp/*
+          - src: mmp/*
             dst: mmp/
 
     whisper-large-v2:
