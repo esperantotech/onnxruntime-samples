@@ -78,7 +78,7 @@ data:
         path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/text/question_answer/2.tar.gz'
         version: 2
         files:
-        - src: 2/squad-v1*
+        - src: squad-v1*
           dst: data/
 
     squadV2.0:
@@ -89,7 +89,7 @@ data:
         path: 's3://et-sw-sdk-release-artifacts/sw-ci-inputs/text/question_answer/2.tar.gz'
         version: 2
         files:
-        - src: 2/squad-v2*
+        - src: squad-v2*
           dst: data/
 
   tokenizer:
