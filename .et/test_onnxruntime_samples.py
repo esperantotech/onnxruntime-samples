@@ -116,6 +116,7 @@ def run_py_sample(request, test_family, test_module,
                   test_model=None, num_tokens=None, new_tokens=None, batch=None, launches=None, run_mode=None,
                   with_tracing=None, with_warmup=None, with_input=None, with_output=None, with_golden=None,
                   bert_variant=None, fp16=None, precision=None, provider=None,
+                  image=None, expected_result=None,
                   prompt=None, artifacts_dir=True,
                   should_succeed=True):
     if test_model is not None:  # llm(s)
@@ -139,12 +140,15 @@ def run_py_sample(request, test_family, test_module,
     precision_param = f"--precision {precision}" if precision is not None else ''
     provider_param = f"--provider {provider}" if provider is not None else ''
     prompt_param = f"--prompt \"{prompt}\"" if prompt is not None else ''
+    image = f"--image {image}" if image else ''
+    expected_result = f"--expected-result {expected_result}" if expected_result else ''
     artifacts_param = "--artifacts DownloadArtifactory" if artifacts_dir and test_model is None else ""
     result = run(
         f"python3 models/{test_family}/python/{test_module} "
         f"{m_param} {t_param} {num_tokens_param} {new_tokens_param} {warmup_param} {tracing_param} {batch_param} "
         f"{launches_param} {input_param} {output_param} {bert_variant_param} {fp16_param} {precision_param} "
         f"{provider_param} {golden_param} {prompt_param} "
+        f"{image} {expected_result} "
         f"{artifacts_param}",
         output_path='tests/' + request.node.name
     )
@@ -270,6 +274,34 @@ class TestImageClassifiersPython:
                       run_mode=run_mode,
                       with_tracing=with_tracing,
                       with_warmup=with_warmup)
+
+    @pytest.mark.parametrize('image', ['cats.jpg'])
+    @pytest.mark.parametrize('expected_result', ["cat cat remote remote"])
+    def test_yolo_v8(self, image, expected_result, request):
+        """Test yolo_v8.py"""
+        run_py_sample(request,
+                      self.family, "yolo_v8.py",
+                      image=f'artifacts/{image}',
+                      expected_result=expected_result,
+                      )
+
+    def test_retinanet(self, request):
+        """Test retinanet.py"""
+        run_py_sample(request,
+                      self.family, "retinanet.py",
+                      )
+
+    def test_transunet(self, request):
+        """Test transunet.py"""
+        run_py_sample(request,
+                      self.family, "transunet.py",
+                      )
+
+    def test_unet(self, request):
+        """Test unet.py"""
+        run_py_sample(request,
+                      self.family, "unet.py",
+                      )
 
 
 @pytest.mark.python

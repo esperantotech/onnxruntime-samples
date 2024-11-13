@@ -177,7 +177,31 @@ data:
       - path: sw-ci-inputs/models/vgg19-bn-7
         server: artifactory
       version: 1
-      
+
+    yolov8-fp16-onnx:
+      servers:
+        - path: sw-ci-inputs/models/yolov8-fp16-onnx
+          server: hg_face
+      version: 1
+
+    retinanet-resnet50-fp16-onnx:
+      servers:
+        - path: sw-ci-inputs/models/retinanet-resnet50-fp16-onnx
+          server: hg_face
+      version: 1
+
+    transunet-b16-fp32-onnx:
+      servers:
+        - path: sw-ci-inputs/models/transunet-b16-fp32-onnx
+          server: hg_face
+      version: 1
+
+    unet-fp16-onnx:
+      servers:
+        - path: sw-ci-inputs/models/unet-fp16-onnx
+          server: hg_face
+      version: 1
+
     dlrm_mlperf_10GB_onnx:
       servers:
       - path: sw-ci-inputs/models/dlrm_mlperf_10GB_onnx
