@@ -165,7 +165,8 @@ def get_etglow_provider_options(args, onnx_symbols) -> dict:
     }
     return poptions
 
-def llm_kvc_inference(session : onnxruntime.InferenceSession, tokenizer : AutoTokenizer, input_tensors : dict,
+def llm_kvc_inference(session : onnxruntime.InferenceSession, run_options : onnxruntime.RunOptions,
+                      tokenizer : AutoTokenizer, input_tensors : dict,
                       prompt_tensor, num_tokens, context, sequence_len, window : int, batch : int) -> tuple[str, float]:
     sum_perplexity = 0
     new_token = np.array([10])
@@ -182,7 +183,7 @@ def llm_kvc_inference(session : onnxruntime.InferenceSession, tokenizer : AutoTo
         if (new_token == tokenizer.eos_token_id).any():
             break
 
-        output = session.run(output_names, input_tensors)
+        output = session.run(output_names, input_tensors, run_options)
 
         outs_dictionary = {name: content for (name, content) in zip (output_names, output)}
 
@@ -218,8 +219,10 @@ def llm_kvc_inference(session : onnxruntime.InferenceSession, tokenizer : AutoTo
     return answers, sum_perplexity
 
 
-def llm_kvc_inference_iobindings(session : onnxruntime.InferenceSession, tokenizer : AutoTokenizer, input_tensors : dict,
+def llm_kvc_inference_iobindings(session : onnxruntime.InferenceSession, run_options : onnxruntime.RunOptions,
+                                 tokenizer : AutoTokenizer, input_tensors : dict,
                                  prompt_tensor, num_tokens, context, sequence_len, window : int, batch : int) -> tuple[str, float]:
+
     sum_perplexity = 0
     new_token = np.array([10])
     prompt_size = len(prompt_tensor[0])
@@ -249,7 +252,7 @@ def llm_kvc_inference_iobindings(session : onnxruntime.InferenceSession, tokeniz
             if (new_token == tokenizer.eos_token_id).any():
                 break
 
-            session.run_with_iobinding(io_binding)
+            session.run_with_iobinding(io_binding, run_options)
 
             logits = ortvalues['logits'].numpy()
 
@@ -479,13 +482,16 @@ def main():
     session_options.profile_file_prefix = f'{model_name}_cpu_window_{args.window_size}'
     session_cpu = onnxruntime.InferenceSession(fixed_model_path,  sess_options=session_options, providers=['CPUExecutionProvider'])
     comp_time_cpu = time.time() - start
+    
+    run_options_cpu = onnxruntime.RunOptions()
+    run_options_cpu.add_run_config_entry("memory.enable_memory_arena_shrinkage", "cpu:0")
 
     # Process inputs
     input_tensors_cpu = preprocess_llm_input_tensors(session_cpu, prompt_tensor, args)
 
     # Execute inference on CPU
     start = time.time()
-    answers_cpu, perplexity_cpu = llm_kvc_inference(session_cpu, tokenizer, input_tensors_cpu, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
+    answers_cpu, perplexity_cpu = llm_kvc_inference(session_cpu, run_options_cpu, tokenizer, input_tensors_cpu, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
     session_cpu.end_profiling()
     inf_time_cpu = time.time() - start
 
@@ -499,6 +505,9 @@ def main():
     session_etglow = onnxruntime.InferenceSession(fixed_model_path, sess_options=session_options, providers=['EtGlowExecutionProvider'], provider_options=[provider_options])
     etsoc_comp_time = time.time() - start 
 
+    run_options_etglow = onnxruntime.RunOptions()
+    run_options_etglow.add_run_config_entry("memory.enable_memory_arena_shrinkage", "gpu:0")  # force memory shrinkage
+
     # Process inputs
     input_tensors_etglow = preprocess_llm_input_tensors(session_etglow, prompt_tensor, args)
 
@@ -506,9 +515,9 @@ def main():
     start = time.time()
     match args.etglow_implementation:
         case 'llm_kvc_inference_iobindings':
-            answers_etglow, perplexity_etglow = llm_kvc_inference_iobindings(session_etglow, tokenizer, input_tensors_etglow, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
+            answers_etglow, perplexity_etglow = llm_kvc_inference_iobindings(session_etglow, run_options_etglow, tokenizer, input_tensors_etglow, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
         case "llm_kvc_inference":
-            answers_etglow, perplexity_etglow = llm_kvc_inference(session_etglow, tokenizer, input_tensors_etglow, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
+            answers_etglow, perplexity_etglow = llm_kvc_inference(session_etglow, run_options_etglow, tokenizer, input_tensors_etglow, prompt_tensor, args.generate_tokens, context_len, args.sequence_length, args.window_size, args.batch)
         case _:
             logger.error(f'Unknown etglow_implementation: {args.etglow_implementation}')
     session_etglow.end_profiling()
