@@ -1,4 +1,4 @@
-artifacts_mgr_client
+artifacts_mgr_client~=0.3.12
 onnx==1.16.1
 pytest-xdist
 pyasn1
