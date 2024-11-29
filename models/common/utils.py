@@ -327,7 +327,7 @@ def get_common_arg_parser() -> ArgumentParser:
     parser.add_argument("-t", "--enable-tracing", action='store_true',
                         help = 'Enable onnxruntime profiling and neuralizer traces')
     parser.add_argument("-v", "--verbose", action = 'store_true', default=False,
-                        help = "It shows help info messages")
+                        help = "Show more output. Including ONNXRuntime logs")
     return parser
 
 def extra_arguments(parser : ArgumentParser) -> ArgumentParser:

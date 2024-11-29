@@ -17,8 +17,8 @@ def check_positive(value):
 def get_arg_parser() -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument("-a", "--artifacts", default = "../../../DownloadArtifactory")
-    parser.add_argument("-v", "--verbose", action = "store_true",
-                        help = "It shows help info messages")
+    parser.add_argument("-v", "--verbose", action = "store_true", default=False,
+                        help = "Show more output. Including ONNXRuntime logs")
     parser.add_argument("-b", "--batch", 
                         help = "specify the number of batches", 
                         type = check_positive, default = 1)

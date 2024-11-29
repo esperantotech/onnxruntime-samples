@@ -47,7 +47,7 @@ def parse_arguments():
     parser.add_argument('--enable-tracing', action = 'store_true', default = False,
                         help = 'Enable onnxruntime profiling and neuralizer traces')
     parser.add_argument('-v', '--verbose', action = 'store_true', default = False,
-                        help = 'Enable onnxruntime logs')
+                        help = 'Show more output. Including ONNXRuntime logs')
 
     # options to be validated
     parser.add_argument("-r", '--run-dir', metavar = "DIR", type = str, default = 'myrundir',

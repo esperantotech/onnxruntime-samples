@@ -22,6 +22,8 @@ def get_arg_parser(argv: Optional[Sequence[str]] = None) -> ArgumentParser:
     parser.add_argument("-g", "--golden",
                         help = "Path to golden image",
                         type = str)
+    parser.add_argument("-v", "--verbose", action = "store_true", default=False,
+                        help = "Show more output")
     return parser
 
 def main(argv: Optional[Sequence[str]] = None):
