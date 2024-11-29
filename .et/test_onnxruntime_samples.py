@@ -118,6 +118,7 @@ def run_py_sample(request, test_family, test_module,
                   bert_variant=None, fp16=None, precision=None, provider=None,
                   image=None, expected_result=None,
                   prompt=None, artifacts_dir=True,
+                  verbose=True,
                   should_succeed=True):
     if test_model is not None:  # llm(s)
         m_param = f'-m DownloadArtifactory/models/{test_model}/model.onnx'
@@ -143,13 +144,14 @@ def run_py_sample(request, test_family, test_module,
     image = f"--image {image}" if image else ''
     expected_result = f"--expected-result {expected_result}" if expected_result else ''
     artifacts_param = "--artifacts DownloadArtifactory" if artifacts_dir and test_model is None else ""
+    verbose_param = "-v" if verbose else ""
     result = run(
         f"python3 models/{test_family}/python/{test_module} "
         f"{m_param} {t_param} {num_tokens_param} {new_tokens_param} {warmup_param} {tracing_param} {batch_param} "
         f"{launches_param} {input_param} {output_param} {bert_variant_param} {fp16_param} {precision_param} "
         f"{provider_param} {golden_param} {prompt_param} "
         f"{image} {expected_result} "
-        f"{artifacts_param}",
+        f"{artifacts_param} {verbose_param}",
         output_path='tests/' + request.node.name
     )
     if should_succeed:

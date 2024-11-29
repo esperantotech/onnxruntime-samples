@@ -46,7 +46,7 @@ def parse_arguments():
                         help = 'Total sequence length for the run')
     parser.add_argument('--enable-tracing', action = 'store_true', default = False,
                         help = 'Enable onnxruntime profiling and neuralizer traces')
-    parser.add_argument('--verbose', action = 'store_true', default = False,
+    parser.add_argument('-v', '--verbose', action = 'store_true', default = False,
                         help = 'Enable onnxruntime logs')
 
     # options to be validated
