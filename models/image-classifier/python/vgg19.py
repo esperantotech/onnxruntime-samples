@@ -43,6 +43,7 @@ def main(argv: Optional[Sequence[str]] = None):
 
     # Session and provider options
     sess_options = ort.SessionOptions()
+    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     if (args.mode == "async"):        
         sess_options.intra_op_num_threads=2
     print (f'Session intra-op num. threads: {sess_options.intra_op_num_threads}')

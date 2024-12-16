@@ -82,7 +82,7 @@ def main():
     sess_options = onnxruntime.SessionOptions()
     sess_options.enable_profiling = True
     sess_options.log_severity_level = 2
-    sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_BASIC
+    sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
 
     # Generates some glow specific parameters
     onnx_shape_params = get_onnx_shape_params()

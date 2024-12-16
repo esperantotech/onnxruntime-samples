@@ -91,6 +91,7 @@ def main(argv: Optional[Sequence[str]] = None):
 
     # session and provider options
     sess_options = ort.SessionOptions()
+    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     utils.set_verbose_output(sess_options, args.verbose)
     sess_options.enable_profiling = args.enable_tracing
     poptions = get_provider_options(args) 

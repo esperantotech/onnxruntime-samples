@@ -193,6 +193,7 @@ def run_llava(args, execution_provider):
     print(f'Provider options: {provider_options}')
 
     sess_options = onnxruntime.SessionOptions()
+    sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
     utils.set_verbose_output(sess_options, args.verbose)
     sess_options.enable_profiling = args.enable_tracing
 

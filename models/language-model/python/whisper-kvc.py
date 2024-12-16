@@ -203,7 +203,7 @@ def main(argv: Optional[Sequence[str]] = None):
     session_options = onnxruntime.SessionOptions()
     utils.set_verbose_output(session_options, args.verbose)
      # Disable all the graph optimizations
-    session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_DISABLE_ALL
+    session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
     session_options.enable_profiling = args.enable_tracing
 
     # Encode

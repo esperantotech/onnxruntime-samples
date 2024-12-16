@@ -98,7 +98,7 @@ def compile_yolov8(onnx_model_path, batch):
     """
     # Disable all the graph optimizations
     options = onnxruntime.SessionOptions()
-    options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_DISABLE_ALL
+    options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
 
     # Generates some glow specific parameters
     onnx_shape_params = get_onnx_shape_params(batch)

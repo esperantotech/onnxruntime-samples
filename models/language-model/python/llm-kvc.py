@@ -60,7 +60,7 @@ def parse_arguments():
                         help = 'Number of batched inferences')
     parser.add_argument("-l", '--num-layers', type = int, default = 32,
                         help = 'The number of layers of the model')
-    parser.add_argument("--optimization-level", type = str, default = 'ORT_ENABLE_BASIC', choices = ['ORT_DISABLE_ALL', 'ORT_ENABLE_BASIC', 'ORT_ENABLE_EXTENDED', 'ORT_ENABLE_ALL'],
+    parser.add_argument("--optimization-level", type = str, default = 'ORT_ENABLE_ALL', choices = ['ORT_DISABLE_ALL', 'ORT_ENABLE_BASIC', 'ORT_ENABLE_EXTENDED', 'ORT_ENABLE_ALL'],
                         help = 'Graph Optimization level in ONNX Runtime')
     parser.add_argument("--etglow-implementation", type = str, default = 'llm_kvc_inference_iobindings', choices = ['llm_kvc_inference', 'llm_kvc_inference_iobindings'],
                         help = 'Choose implementation that will be used to run with ETGLOW EP')

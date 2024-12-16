@@ -37,6 +37,7 @@ def run_txt_clip(session, input_ids):
 def txt_clip(model : Path, args : ArgumentParser, tokenizer : any) -> any:
 
     sess_options = ort.SessionOptions()
+    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     batch_size = len([args.prompt])
 
     poptions_txt_clip = {
@@ -47,7 +48,7 @@ def txt_clip(model : Path, args : ArgumentParser, tokenizer : any) -> any:
     if args.provider == "etglow":
         session = ort.InferenceSession(model, sess_options, providers = ['EtGlowExecutionProvider'], provider_options = [poptions_txt_clip])
     else:
-        session = ort.InferenceSession(model)    
+        session = ort.InferenceSession(model, sess_options)
 
     text_input = tokenizer([args.prompt], padding="max_length", max_length=tokenizer.model_max_length, return_tensors = "pt")
     input_ids = text_input.input_ids.numpy()
@@ -86,6 +87,7 @@ def run_unet(session, t, latent_model_input, text_embeddings):
 def unet(model : Path, args : ArgumentParser, tokenizer : any, height : int, width: int) -> any:
 
     sess_options = ort.SessionOptions()
+    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     batch_size = len([args.prompt])    
 
     poptions_unet = {
@@ -96,7 +98,7 @@ def unet(model : Path, args : ArgumentParser, tokenizer : any, height : int, wid
     if args.provider == "etglow":
         session = ort.InferenceSession(model, sess_options, providers = ['EtGlowExecutionProvider'], provider_options = [poptions_unet])
     else:
-        session = ort.InferenceSession(model)
+        session = ort.InferenceSession(model, sess_options)
 
     return session
 
@@ -115,6 +117,7 @@ def run_vae_decode(session, latents):
 def vae_decode(model : Path, args : ArgumentParser, height : int, width : int) -> any:
 
     sess_options = ort.SessionOptions()
+    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     batch_size = len([args.prompt])    
     poptions_vae_decode = {
         "etglow_greedy": "true",
@@ -124,7 +127,7 @@ def vae_decode(model : Path, args : ArgumentParser, height : int, width : int) -
     if args.provider == "etglow":
         session =  ort.InferenceSession(model, sess_options, providers = ['EtGlowExecutionProvider'], provider_options = [poptions_vae_decode])
     else:
-        session = ort.InferenceSession(model)
+        session = ort.InferenceSession(model, sess_options)
 
     return session
 
