@@ -246,13 +246,13 @@ data:
       servers:
       - path: sw-ci-inputs/models/llama3-8b-Instruct-kvc-fp16-onnx
         server: hg_face
-      version: 2
+      version: 5
 
     llama3-8b-Instruct-kvc-AWQ-int4-onnx:
       servers:
       - path: sw-ci-inputs/models/llama3-8b-Instruct-kvc-AWQ-int4-onnx
         server: hg_face
-      version: 1
+      version: 2
 
     mistral-7b-fp16-onnx:
       servers:
@@ -264,19 +264,19 @@ data:
       servers:
       - path: sw-ci-inputs/models/mistral-7b-kvc-fp16-onnx
         server: hg_face
-      version: 3
+      version: 4
 
     mistral-7b-Instruct-v0.2-kvc-fp16-onnx:
       servers:
       - path: sw-ci-inputs/models/mistral-7b-Instruct-v0.2-kvc-fp16-onnx
         server: hg_face
-      version: 2
+      version: 6
 
     mistral-7b-Instruct-v0.2-kvc-AWQ-int4-onnx:
       servers:
       - path: sw-ci-inputs/models/mistral-7b-Instruct-v0.2-kvc-AWQ-int4-onnx
         server: hg_face
-      version: 1 
+      version: 2 
 
     vicuna-7b-v.1.5-AWQ-int4-onnx:
       servers:
@@ -288,7 +288,7 @@ data:
       servers:
       - path: sw-ci-inputs/models/vicuna-7b-v1.5-kvc-AWQ-int4-onnx
         server: hg_face
-      version: 2
+      version: 4
 
     mistral-7b-AWQ-int4-onnx:
       servers:
@@ -300,7 +300,7 @@ data:
       servers:
       - path: sw-ci-inputs/models/mistral-7b-kvc-AWQ-int4-onnx
         server: hg_face
-      version: 3
+      version: 4
 
     llava-1.5-7b-fp16-onnx:
       servers:

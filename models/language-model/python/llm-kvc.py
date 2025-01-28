@@ -36,7 +36,7 @@ def parse_arguments():
                          help = 'Path to the tokenizer folder')
     parser.add_argument("-p", '--prompt', metavar = "TEXT", type = str, default = 'Who is Messi?',
                         help = 'Given Prompt')
-    parser.add_argument("-s", '--sequence-length', type = int, default = 256,
+    parser.add_argument("-s", '--sequence-length', type = int, default = 64,
                         help = 'Total sequence length for the run')
     parser.add_argument("-c", '--context', type = int, default = 2048,
                         help = 'Total context length for the run')
@@ -206,6 +206,11 @@ def llm_kvc_inference(session : onnxruntime.InferenceSession, run_options : onnx
                 attention_mask = np.zeros((batch, sequence_len), dtype='int64')
                 attention_mask[:, -next_index:] = 1
                 input_tensors['attention_mask'] = attention_mask  # inf server
+            elif name == 'position_ids':
+                pos = np.concatenate((np.zeros([sequence_len - next_index], dtype = 'int64'), np.arange(next_index, dtype = 'int64').reshape(next_index)), axis=0)
+                input_tensors['position_ids'] = np.tile(pos, (batch, 1))
+            elif name == 'tree_attention':
+                continue
             else:
                 old_name = name.replace("past_key_values", "present")
                 start_idx = next_index - current_index
@@ -274,6 +279,12 @@ def llm_kvc_inference_iobindings(session : onnxruntime.InferenceSession, run_opt
                     attention_mask = np.zeros((batch, sequence_len), dtype='int64')
                     attention_mask[:, -next_index:] = 1
                     ortvalues['attention_mask'].update_inplace(attention_mask)
+                elif name == 'position_ids':
+                    pos = np.concatenate((np.zeros([sequence_len - next_index], dtype = 'int64'), np.arange(next_index, dtype = 'int64').reshape(next_index)), axis=0)
+                    position_ids = np.tile(pos, (batch, 1))
+                    ortvalues['position_ids'].update_inplace(position_ids)
+                elif name == 'tree_attention':
+                    continue
                 else:
                     update_kvc_view(io_binding, name, ortvalues, current_index, batch, nheads, context, hidden)
 
@@ -300,6 +311,8 @@ def preallocate_input_outputs(session : onnxruntime.InferenceSession, output_nam
     ortvalues = {
         'input_ids':      onnxruntime.OrtValue.ortvalue_from_numpy(input_tensors['input_ids'], device_type, device_id),
         'attention_mask': onnxruntime.OrtValue.ortvalue_from_numpy(input_tensors['attention_mask'], device_type, device_id),
+        'position_ids': onnxruntime.OrtValue.ortvalue_from_numpy(input_tensors['position_ids'], device_type, device_id),
+        'tree_attention': onnxruntime.OrtValue.ortvalue_from_numpy(input_tensors['tree_attention'], device_type, device_id),
         'logits':      onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch, window, logits_last_dim), TypeHelper.ort_type_to_numpy_type(TypeHelper.get_output_type(session, 'logits')), device_type, device_id),
     }
     # All KVC input (past_key_value) & output (present) tensors will share same underlying allocation.
@@ -314,7 +327,7 @@ def preallocate_input_outputs(session : onnxruntime.InferenceSession, output_nam
 def bind_input_outputs(io_binding, inputs_names, outputs_names, ortvalues, batch : int, nheads : int, context : int, hidden : int):
     # Bind inputs (will bind them to the allocated memory)
     for name in inputs_names:
-        if name in ['input_ids', 'attention_mask']:
+        if name in ['input_ids', 'attention_mask', 'position_ids', 'tree_attention']:
             # For input_ids or attention_mask lets bind the ortvalue directly
             io_binding.bind_ortvalue_input(name, ortvalues[name])
         else:
@@ -397,17 +410,21 @@ def preprocess_llm_input_tensors(session : onnxruntime.InferenceSession, input_i
     pads = args.sequence_length
     context = get_context_size(args)
 
+    pos = np.concatenate((np.zeros([pads - window], dtype = 'int64'), np.arange(window, dtype = 'int64').reshape(window)), axis=0)
+    trian = np.triu(-65504*np.ones(pads), k= 1).astype('float16').reshape(1, 1, pads, pads)
     inputs_names = [input.name for input in session.get_inputs()]
     inputs_dict = {
         'input_ids': copy.deepcopy(input_ids_tensor[:, :window].reshape(batch, window)),
-        'attention_mask': np.concatenate((np.zeros([batch, pads - window], dtype = 'int64'), np.ones((batch, window), dtype = 'int64')), axis=1)
+        'attention_mask': np.concatenate((np.zeros([batch, pads - window], dtype = 'int64'), np.ones((batch, window), dtype = 'int64')), axis=1),
+        'position_ids': np.tile(pos, (batch, 1)),
+        'tree_attention': np.tile(trian, (batch, 1, 1, 1))
     }
     if args.use_kvc:
         # deduce n_heads and hidden from model using ORT
         n_heads = int(session.get_outputs()[1].shape[-3])
         hidden = int(session.get_outputs()[1].shape[-1])
         for name in inputs_names:
-            if name not in ['input_ids','attention_mask']:
+            if name not in ['input_ids','attention_mask', 'position_ids', 'tree_attention']:
                 inputs_dict[name] = np.zeros([batch, n_heads, context - window, hidden], dtype="float16")
     return inputs_dict
 
