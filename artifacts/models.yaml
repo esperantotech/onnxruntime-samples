@@ -130,12 +130,6 @@ data:
         server: artifactory
       version: 4
 
-    resnet50_denso_onnx:
-      servers:
-      - path: sw-ci-inputs/models/resnet50_denso_onnx
-        server: artifactory
-      version: 1
-
     resnet50_onnx:
       servers:
       - path: sw-ci-inputs/models/resnet50_onnx
@@ -147,24 +141,6 @@ data:
       - path: sw-ci-inputs/models/resnet50_onnx
         server: artifactory
       version: 4
-
-    mobilenet_v2_denso_onnx:
-      servers:
-      - path: sw-ci-inputs/models/mobilenet_v2_denso_onnx
-        server: artifactory
-      version: 1
-
-    mobilenet_v3_small_denso_onnx:
-      servers:
-      - path: sw-ci-inputs/models/mobilenet_v3_small_denso_onnx
-        server: artifactory
-      version: 1
-
-    vgg16_bn_denso_onnx:
-      servers:
-      - path: sw-ci-inputs/models/vgg16_bn_denso_onnx
-        server: artifactory
-      version: 1
 
     vgg19:
       servers:
