@@ -85,13 +85,13 @@ cd onnxruntime-samples/
 ```
 
 ### Start dockerized environment
-Assuming you have a `sw-platform` installation in your `$HOME`:
+First thing that we have to do is start a docker container with the following command. That will allow us to obtain ownership of a single ET-SoC-1 device (for the examples collected in this repository, a single device will suffice) and start a bash console. We disable the runtime server as the examples will create their own runtime instance.
 ```
-./sw-platform/dock.py --image=convoke/ubuntu-22.04-et-sw-develop-stack prompt
+et_docker --no-runtime-server --develop --num-devices=1 prompt --network=host
 ```
 
 ## Installing dependencies
-Before installing datasets we must ensure `artifacts_mgr_client` (and other python packages) is installed.
+Before installing datasets we must ensure `artifacts_mgr_client` (and other python packages) are installed.
 We also need to install some system-level dependencies required for C++ samples.
 
 ```
@@ -102,6 +102,8 @@ sudo apt install -y --no-install-recommends ffmpeg libsm6 libxext6
 ```
 
 ### Getting models and datasets
+WARNING: This step might require access to esperanto artifactory and/or aws.
+
 Then we can download all models and datasets required by the examples. 
 The yaml file `artifacts/models.yaml` contains the bill of materials to be retrieved from artifactory.
 Samples assume by default that artifacts will be placed in `DownloadArtifactory` directory but the user can customize the install location and later use script parameter to point to the download location.
